@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { supabase } from '../../../../src/lib/supabase';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Save, Loader2, Upload, Image as ImageIcon, Plus } from 'lucide-react';
+import { ArrowLeft, Save, Loader2, Upload, Image as ImageIcon } from 'lucide-react';
 import Link from 'next/link';
 
 export default function NewLocationPage() {
@@ -21,7 +21,7 @@ export default function NewLocationPage() {
     slug: '',
     short_description: '',
     description: '',
-    category_id: 'vidikovac', // default
+    category_id: 'vidikovac',
     country: 'Srbija',
     region: '',
     best_time: '',
@@ -53,7 +53,7 @@ export default function NewLocationPage() {
     const value = e.target.value;
     if (value === 'NEW_CATEGORY') {
       setIsAddingNewCategory(true);
-      setFormData({ ...formData, category_id: '' }); // Resetujemo dok ne unese novu
+      setFormData({ ...formData, category_id: '' });
     } else {
       setIsAddingNewCategory(false);
       setFormData({ ...formData, category_id: value });
@@ -85,7 +85,6 @@ export default function NewLocationPage() {
     setLoading(true);
     setMessage({ text: '', isError: false });
 
-    // Konačna kategorija zavisi od toga da li je kucana custom ili izabrana postojeća
     const finalCategory = isAddingNewCategory 
       ? customCategory.trim().toLowerCase().replace(/\s+/g, '-') 
       : formData.category_id;
@@ -96,7 +95,7 @@ export default function NewLocationPage() {
       return;
     }
 
-    // Težina staze se šalje samo ako je kategorija "planina", inače stavljamo null u bazu
+    // Težina staze ide u bazu samo ako je izabrana planina
     const finalDifficulty = finalCategory === 'planina' ? formData.difficulty : null;
 
     try {
@@ -118,7 +117,7 @@ export default function NewLocationPage() {
       const payload = {
         ...formData,
         category_id: finalCategory,
-        difficulty: finalDifficulty, // Uslovno mapirano
+        difficulty: finalDifficulty,
         cover_image: coverImageUrl,
         images: galleryUrls,
       };
@@ -181,7 +180,6 @@ export default function NewLocationPage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Kategorija sa opcijom za novu */}
             <div>
               <label className="block text-xs font-semibold text-gray-600 dark:text-zinc-400 mb-1">Kategorija</label>
               {!isAddingNewCategory ? (
@@ -220,7 +218,7 @@ export default function NewLocationPage() {
               )}
             </div>
 
-            {/* 🛑 TEŽINA STAZE: Prikazuje se SAMO ako je odabrana kategorija "planina" */}
+            {/* Težina staze se prikazuje samo ako je u pitanju Planina */}
             {((!isAddingNewCategory && formData.category_id === 'planina') || (isAddingNewCategory && customCategory.toLowerCase() === 'planina')) && (
               <div>
                 <label className="block text-xs font-semibold text-gray-600 dark:text-zinc-400 mb-1">Težina staze</label>
@@ -243,25 +241,44 @@ export default function NewLocationPage() {
           <h3 className="text-sm font-bold text-[#006D44] uppercase tracking-wider">2. Geografija & Opisi</h3>
           <div className="grid grid-cols-2 gap-4">
             <div>
+              <label className="block text-xs font-semibold text-gray-600 dark:text-zinc-400 mb-1">Država</label>
+              <select
+                value={formData.country}
+                onChange={(e) => setFormData({ ...formData, country: e.target.value })}
+                className="w-full px-4 py-3 border border-gray-200 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-900 dark:text-white text-sm focus:ring-2 focus:ring-[#006D44] focus:outline-none"
+              >
+                <option value="Srbija">Srbija</option>
+                <option value="Crna Gora">Crna Gora</option>
+                <option value="Bosna i Hercegovina">Bosna i Hercegovina</option>
+                <option value="Hrvatska">Hrvatska</option>
+                <option value="Severna Makedonija">Severna Makedonija</option>
+                <option value="Albanija">Albanija</option>
+                <option value="Slovenija">Slovenija</option>
+                <option value="Bugarska">Bugarska</option>
+                <option value="Grčka">Grčka</option>
+                <option value="Rumunija">Rumunija</option>
+              </select>
+            </div>
+            <div>
               <label className="block text-xs font-semibold text-gray-600 dark:text-zinc-400 mb-1">Regija</label>
               <input
                 type="text"
                 value={formData.region}
                 onChange={(e) => setFormData({ ...formData, region: e.target.value })}
-                placeholder="npr. Zapadna Srbija"
-                className="w-full px-4 py-3 border border-gray-200 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-900 dark:text-white text-sm"
+                placeholder="e.g. Tara, Durmitor, Istra..."
+                className="w-full px-4 py-3 border border-gray-200 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-900 dark:text-white text-sm focus:ring-2 focus:ring-[#006D44] focus:outline-none"
               />
             </div>
-            <div>
-              <label className="block text-xs font-semibold text-gray-600 dark:text-zinc-400 mb-1">Najbolje vreme</label>
-              <input
-                type="text"
-                value={formData.best_time}
-                onChange={(e) => setFormData({ ...formData, best_time: e.target.value })}
-                placeholder="npr. Proleće, Leto"
-                className="w-full px-4 py-3 border border-gray-200 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-900 dark:text-white text-sm"
-              />
-            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 dark:text-zinc-400 mb-1">Najbolje vreme za posetu</label>
+            <input
+              type="text"
+              value={formData.best_time}
+              onChange={(e) => setFormData({ ...formData, best_time: e.target.value })}
+              placeholder="e.g. Proleće, Leto"
+              className="w-full px-4 py-3 border border-gray-200 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-900 dark:text-white text-sm"
+            />
           </div>
           <div>
             <label className="block text-xs font-semibold text-gray-600 dark:text-zinc-400 mb-1">Kratak opis</label>
@@ -273,7 +290,7 @@ export default function NewLocationPage() {
             />
           </div>
           <div>
-            <label className="block text-xs font-semibold text-gray-600 dark:text-zinc-400 mb-1">Detaljan opis</label>
+            <label className="block text-xs font-semibold text-gray-600 dark:text-zinc-400 mb-1">Detaljan opis rute</label>
             <textarea
               rows={4}
               value={formData.description}

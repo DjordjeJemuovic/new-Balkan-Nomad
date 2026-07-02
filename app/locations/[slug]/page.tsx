@@ -1,0 +1,197 @@
+'use client';
+
+import { useState, useEffect, use } from 'react';
+import { supabase } from '../../../src/lib/supabase';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { ArrowLeft, MapPin, Calendar, Compass, ShieldCheck, Info, Sparkles } from 'lucide-react';
+
+export default function LocationDetailPage({ params }: { params: Promise<{ slug: string }> }) {
+  // Otpakivanje params-a u Next.js 15+ okruženju
+  const resolvedParams = use(params);
+  const router = useRouter();
+  
+  const [location, setLocation] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [activeImage, setActiveImage] = useState<string>('');
+
+  useEffect(() => {
+    async function fetchLocationDetails() {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('locations')
+        .select('*')
+        .eq('slug', resolvedParams.slug)
+        .single();
+
+      if (!error && data) {
+        setLocation(data);
+        setActiveImage(data.cover_image); // Glavna slika je podrazumevano prva velika slika
+      } else {
+        console.error("Lokacija nije pronađena ili je došlo do greške:", error);
+      }
+      setLoading(false);
+    }
+
+    fetchLocationDetails();
+  }, [resolvedParams.slug]);
+
+  if (loading) {
+    return (
+      <div className="max-w-xl mx-auto min-h-screen bg-white dark:bg-zinc-950 flex items-center justify-center">
+        <p className="text-sm font-medium text-gray-400 animate-pulse">Učitavanje detalja o destinaciji...</p>
+      </div>
+    );
+  }
+
+  if (!location) {
+    return (
+      <div className="max-w-xl mx-auto min-h-screen bg-white dark:bg-zinc-950 px-6 py-12 text-center space-y-4">
+        <p className="text-gray-500">Ups! Tražena lokacija ne postoji u nomadskoj bazi.</p>
+        <Link href="/" className="inline-block px-4 py-2 bg-[#006D44] text-white text-xs font-bold rounded-xl">
+          Vrati se na početnu
+        </Link>
+      </div>
+    );
+  }
+
+  // Spajanje cover_image i niza iz galerije (images) u jednu listu svih slika za pregled
+  const allImages = [location.cover_image, ...(location.images || [])].filter(Boolean);
+
+  return (
+    <div className="max-w-xl mx-auto min-h-screen bg-white dark:bg-zinc-950 pb-24 shadow-sm transition-colors duration-200">
+      
+      {/* TOP NAVIGATION BAR */}
+      <div className="sticky top-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-md px-6 py-4 border-b border-gray-50 dark:border-zinc-900 z-50 flex items-center gap-4">
+        <button onClick={() => router.back()} className="p-1 hover:bg-gray-100 dark:hover:bg-zinc-900 rounded-full transition">
+          <ArrowLeft className="w-5 h-5 text-zinc-800 dark:text-white" />
+        </button>
+        <span className="text-sm font-black text-zinc-900 dark:text-white tracking-tight uppercase line-clamp-1">
+          {location.title}
+        </span>
+      </div>
+
+      {/* VELIKI PREGLED SLIKE (VELIKA FOTOGRAFIJA) */}
+      <div className="px-4 mt-4">
+        <div className="relative h-64 md:h-72 w-full bg-zinc-100 dark:bg-zinc-900 rounded-3xl overflow-hidden shadow-sm">
+          <img 
+            src={activeImage || "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=800&q=80"} 
+            alt={location.title} 
+            className="w-full h-full object-cover transition-all duration-300"
+          />
+          {location.difficulty && (
+            <span className={`absolute top-4 right-4 text-[10px] font-bold uppercase px-3 py-1.5 rounded-full shadow-md text-white ${
+              location.difficulty === 'Lako' ? 'bg-emerald-600' : location.difficulty === 'Srednje' ? 'bg-amber-600' : 'bg-red-600'
+            }`}>
+              Staza: {location.difficulty}
+            </span>
+          )}
+        </div>
+
+        {/* 📸 MINI GALERIJA (Horizontalni slider za odabir slika) */}
+        {allImages.length > 1 && (
+          <div className="flex gap-2.5 mt-3 overflow-x-auto pb-2 scrollbar-none px-1">
+            {allImages.map((imgUrl, idx) => (
+              <button
+                key={idx}
+                onClick={() => setActiveImage(imgUrl)}
+                className={`relative h-16 w-20 rounded-xl overflow-hidden flex-shrink-0 border-2 transition ${
+                  activeImage === imgUrl ? 'border-[#006D44] scale-95 shadow-sm' : 'border-transparent opacity-70 hover:opacity-100'
+                }`}
+              >
+                <img src={imgUrl} alt={`Galerija ${idx}`} className="w-full h-full object-cover" />
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* SADRŽAJ I PODACI O LOKACIJI */}
+      <div className="px-6 mt-6 space-y-6">
+        
+        {/* NASLOV I LOKACIJA */}
+        <div className="space-y-2">
+          <div className="flex items-center gap-1 text-xs text-[#006D44] dark:text-emerald-400 font-bold uppercase tracking-wider">
+            <MapPin className="w-3.5 h-3.5" />
+            <span>{location.region ? `${location.region}, ` : ''}{location.country}</span>
+          </div>
+          <h1 className="text-2xl font-black text-zinc-900 dark:text-white tracking-tight leading-tight">
+            {location.title}
+          </h1>
+          {location.short_description && (
+            <p className="text-sm text-gray-500 dark:text-zinc-400 leading-relaxed font-medium italic border-l-2 border-emerald-500 pl-3 py-0.5">
+              "{location.short_description}"
+            </p>
+          )}
+        </div>
+
+        {/* BRZE INFORMACIJE (IKONICE) */}
+        <div className="grid grid-cols-2 gap-3 bg-gray-50 dark:bg-zinc-900/40 p-4 rounded-2xl border border-gray-100 dark:border-zinc-900">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 bg-white dark:bg-zinc-900 rounded-xl border border-gray-100 dark:border-zinc-800 shadow-sm">
+              <Calendar className="w-4 h-4 text-[#006D44]" />
+            </div>
+            <div>
+              <span className="block text-[10px] uppercase font-bold text-gray-400">Najbolje vreme</span>
+              <span className="text-xs font-semibold text-zinc-800 dark:text-zinc-200">{location.best_time || 'Tokom cele godine'}</span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 bg-white dark:bg-zinc-900 rounded-xl border border-gray-100 dark:border-zinc-800 shadow-sm">
+              <Compass className="w-4 h-4 text-[#006D44]" />
+            </div>
+            <div>
+              <span className="block text-[10px] uppercase font-bold text-gray-400">Tip / Kategorija</span>
+              <span className="text-xs font-bold text-zinc-800 dark:text-zinc-200 capitalize">#{location.category_id}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* DETALJAN OPIS RUTE / TEKST */}
+        <div className="space-y-2.5">
+          <h3 className="text-xs font-black text-zinc-800 dark:text-zinc-200 tracking-wider uppercase flex items-center gap-1.5">
+            <Info className="w-4 h-4 text-[#006D44]" /> Detaljan opis avanture
+          </h3>
+          <p className="text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed whitespace-pre-wrap font-medium">
+            {location.description || 'Za ovu lokaciju još uvek nije dodat detaljan tehnički opis rute. Možete istražiti osnovne parametre ili posetiti lokalitet uz standardne outdoor mere predostrožnosti.'}
+          </p>
+        </div>
+
+        {/* KARAKTERISTIKE DESTINACIJE (TAGOVI / BADGES) */}
+        <div className="pt-4 border-t border-gray-50 dark:border-zinc-900/60 space-y-3">
+          <h3 className="text-xs font-black text-zinc-800 dark:text-zinc-200 tracking-wider uppercase flex items-center gap-1.5">
+            <ShieldCheck className="w-4 h-4 text-[#006D44]" /> Sadržaji i Logistika
+          </h3>
+          
+          <div className="flex flex-wrap gap-2">
+            <div className={`text-xs font-semibold px-3 py-1.5 rounded-xl border transition ${
+              location.child_friendly 
+                ? 'bg-blue-50/60 dark:bg-blue-950/20 text-blue-600 dark:text-blue-400 border-blue-100/50 dark:border-blue-900/40' 
+                : 'bg-gray-50 dark:bg-zinc-900 text-gray-400 line-through border-transparent'
+            }`}>
+              👶 Prilagođeno deci
+            </div>
+            
+            <div className={`text-xs font-semibold px-3 py-1.5 rounded-xl border transition ${
+              location.pet_allowed 
+                ? 'bg-purple-50/60 dark:bg-purple-950/20 text-purple-600 dark:text-purple-400 border-purple-100/50 dark:border-purple-900/40' 
+                : 'bg-gray-50 dark:bg-zinc-900 text-gray-400 line-through border-transparent'
+            }`}>
+              🐾 Pet Friendly
+            </div>
+
+            <div className={`text-xs font-semibold px-3 py-1.5 rounded-xl border transition ${
+              location.parking_available 
+                ? 'bg-amber-50/60 dark:bg-amber-950/20 text-amber-600 dark:text-amber-400 border-amber-100/50 dark:border-amber-900/40' 
+                : 'bg-gray-50 dark:bg-zinc-900 text-gray-400 line-through border-transparent'
+            }`}>
+              🚗 Dostupan Parking
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  );
+}
