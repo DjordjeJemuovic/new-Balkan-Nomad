@@ -24,6 +24,8 @@ export default function NewLocationPage() {
     category_id: 'vidikovac',
     country: 'Srbija',
     region: '',
+    latitude: '',
+    longitude: '',
     best_time: '',
     difficulty: 'Lako',
     child_friendly: true,
@@ -121,6 +123,8 @@ export default function NewLocationPage() {
         ...formData,
         category_id: finalCategory,
         difficulty: finalDifficulty,
+        latitude: formData.latitude ? Number(formData.latitude) : null,
+        longitude: formData.longitude ? Number(formData.longitude) : null,
         cover_image: coverImageUrl,
         images: galleryUrls,
       };
@@ -270,6 +274,30 @@ export default function NewLocationPage() {
                 value={formData.region}
                 onChange={(e) => setFormData({ ...formData, region: e.target.value })}
                 placeholder="e.g. Tara, Durmitor, Istra..."
+                className="w-full px-4 py-3 border border-gray-200 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-900 dark:text-white text-sm focus:ring-2 focus:ring-[#006D44] focus:outline-none"
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 dark:text-zinc-400 mb-1">Latitude</label>
+              <input
+                type="number"
+                step="any"
+                value={formData.latitude}
+                onChange={(e) => setFormData({ ...formData, latitude: e.target.value })}
+                placeholder="43.8563"
+                className="w-full px-4 py-3 border border-gray-200 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-900 dark:text-white text-sm focus:ring-2 focus:ring-[#006D44] focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 dark:text-zinc-400 mb-1">Longitude</label>
+              <input
+                type="number"
+                step="any"
+                value={formData.longitude}
+                onChange={(e) => setFormData({ ...formData, longitude: e.target.value })}
+                placeholder="19.4125"
                 className="w-full px-4 py-3 border border-gray-200 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-900 dark:text-white text-sm focus:ring-2 focus:ring-[#006D44] focus:outline-none"
               />
             </div>

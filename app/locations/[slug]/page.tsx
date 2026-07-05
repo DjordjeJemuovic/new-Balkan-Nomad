@@ -4,7 +4,7 @@ import { useState, useEffect, use } from 'react';
 import { supabase } from '../../../src/lib/supabase';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, MapPin, Calendar, Compass, ShieldCheck, Info, Sparkles, Pencil } from 'lucide-react';
+import { ArrowLeft, MapPin, Calendar, Compass, ShieldCheck, Info, Sparkles, Pencil, Home, Search, PlusCircle, Heart, User } from 'lucide-react';
 
 export default function LocationDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   // Otpakivanje params-a u Next.js 15+ okruženju
@@ -15,6 +15,7 @@ export default function LocationDetailPage({ params }: { params: Promise<{ slug:
   const [loading, setLoading] = useState(true);
   const [activeImage, setActiveImage] = useState<string>('');
   const [role, setRole] = useState<string>('user');
+  const [geocodedPosition, setGeocodedPosition] = useState<{ lat: number; lon: number } | null>(null);
 
   useEffect(() => {
     async function checkUserRole() {
@@ -51,6 +52,50 @@ export default function LocationDetailPage({ params }: { params: Promise<{ slug:
     fetchLocationDetails();
   }, [resolvedParams.slug]);
 
+  useEffect(() => {
+    if (!location) return;
+
+    const latitude = Number(location.latitude ?? location.lat);
+    const longitude = Number(location.longitude ?? location.lng ?? location.lon);
+    if (Number.isFinite(latitude) && Number.isFinite(longitude)) return;
+
+    const searchQuery = [location.title, location.region, location.country]
+      .filter(Boolean)
+      .join(', ');
+
+    if (!searchQuery) return;
+
+    const controller = new AbortController();
+
+    async function geocodeLocation() {
+      try {
+        const response = await fetch(
+          `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(searchQuery)}`,
+          { signal: controller.signal }
+        );
+
+        if (!response.ok) return;
+
+        const results = await response.json();
+        const firstResult = results?.[0];
+        const nextLat = Number(firstResult?.lat);
+        const nextLon = Number(firstResult?.lon);
+
+        if (Number.isFinite(nextLat) && Number.isFinite(nextLon)) {
+          setGeocodedPosition({ lat: nextLat, lon: nextLon });
+        }
+      } catch (error) {
+        if (!controller.signal.aborted) {
+          console.error('Geocoding greška:', error);
+        }
+      }
+    }
+
+    geocodeLocation();
+
+    return () => controller.abort();
+  }, [location]);
+
   if (loading) {
     return (
       <div className="max-w-xl mx-auto min-h-screen bg-white dark:bg-zinc-950 flex items-center justify-center">
@@ -72,6 +117,21 @@ export default function LocationDetailPage({ params }: { params: Promise<{ slug:
 
   // Spajanje cover_image i niza iz galerije (images) u jednu listu svih slika za pregled
   const allImages = [location.cover_image, ...(location.images || [])].filter(Boolean);
+  const storedLatitude = Number(location.latitude ?? location.lat);
+  const storedLongitude = Number(location.longitude ?? location.lng ?? location.lon);
+  const hasStoredCoordinates = Number.isFinite(storedLatitude) && Number.isFinite(storedLongitude);
+  const mapLatitude = hasStoredCoordinates ? storedLatitude : geocodedPosition?.lat;
+  const mapLongitude = hasStoredCoordinates ? storedLongitude : geocodedPosition?.lon;
+  const hasMapPosition = typeof mapLatitude === 'number' && typeof mapLongitude === 'number';
+  const mapBoundingBox = hasMapPosition
+    ? `${mapLongitude - 0.03}%2C${mapLatitude - 0.02}%2C${mapLongitude + 0.03}%2C${mapLatitude + 0.02}`
+    : '';
+  const mapEmbedUrl = hasMapPosition
+    ? `https://www.openstreetmap.org/export/embed.html?bbox=${mapBoundingBox}&layer=mapnik&marker=${mapLatitude}%2C${mapLongitude}`
+    : '';
+  const mapLinkUrl = hasMapPosition
+    ? `https://www.openstreetmap.org/?mlat=${mapLatitude}&mlon=${mapLongitude}#map=14/${mapLatitude}/${mapLongitude}`
+    : `https://www.openstreetmap.org/search?query=${encodeURIComponent([location.title, location.region, location.country].filter(Boolean).join(', '))}`;
 
   return (
     <div className="max-w-xl mx-auto min-h-screen bg-white dark:bg-zinc-950 pb-24 shadow-sm transition-colors duration-200">
@@ -215,6 +275,69 @@ export default function LocationDetailPage({ params }: { params: Promise<{ slug:
           </div>
         </div>
 
+        {/* MAPA LOKACIJE */}
+        <div className="pt-4 border-t border-gray-50 dark:border-zinc-900/60 space-y-3">
+          <h3 className="text-xs font-black text-zinc-800 dark:text-zinc-200 tracking-wider uppercase flex items-center gap-1.5">
+            <MapPin className="w-4 h-4 text-[#006D44]" /> Lokacija na mapi
+          </h3>
+          <div className="overflow-hidden rounded-2xl border border-gray-100 dark:border-zinc-900 bg-gray-50 dark:bg-zinc-900/40">
+            {hasMapPosition ? (
+              <iframe
+                title={`Mapa lokacije ${location.title}`}
+                src={mapEmbedUrl}
+                className="h-72 w-full border-0"
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+              />
+            ) : (
+              <div className="h-40 flex items-center justify-center px-6 text-center">
+                <p className="text-xs font-medium text-gray-400">
+                  Mapa će se prikazati kada se dodaju GPS koordinate za ovu destinaciju.
+                </p>
+              </div>
+            )}
+          </div>
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-[10px] font-medium text-gray-400">
+              {hasStoredCoordinates ? 'GPS koordinate iz baze' : 'Lokacija pronađena preko OpenStreetMap pretrage'}
+            </span>
+            <a
+              href={mapLinkUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="text-[10px] font-bold text-[#006D44] dark:text-emerald-400 uppercase"
+            >
+              Otvori veću mapu
+            </a>
+          </div>
+        </div>
+
+      </div>
+
+      {/* FIKSNI DONJI MENI */}
+      <div className="fixed bottom-0 left-0 right-0 max-w-xl mx-auto bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md border-t border-gray-100 dark:border-zinc-800 px-6 py-3 flex justify-between items-center z-50">
+        <Link href="/" className="flex flex-col items-center gap-1 text-[#006D44] dark:text-emerald-500">
+          <Home className="w-5 h-5" />
+          <span className="text-[10px] font-bold">Početna</span>
+        </Link>
+        <button className="flex flex-col items-center gap-1 text-gray-400">
+          <Search className="w-5 h-5" />
+          <span className="text-[10px] font-medium">Pretraga</span>
+        </button>
+        {role === 'admin' && (
+          <Link href="/admin/locations/new" className="flex flex-col items-center gap-1 text-emerald-600">
+            <PlusCircle className="w-5 h-5 text-[#006D44]" />
+            <span className="text-[10px] font-bold text-[#006D44]">Dodaj lokaciju</span>
+          </Link>
+        )}
+        <button className="flex flex-col items-center gap-1 text-gray-400">
+          <Heart className="w-5 h-5" />
+          <span className="text-[10px] font-medium">Omiljeno</span>
+        </button>
+        <button className="flex flex-col items-center gap-1 text-gray-400">
+          <User className="w-5 h-5" />
+          <span className="text-[10px] font-medium">Profil</span>
+        </button>
       </div>
     </div>
   );

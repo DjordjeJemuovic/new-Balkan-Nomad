@@ -16,6 +16,8 @@ type LocationFormData = {
   category_id: string;
   country: string;
   region: string;
+  latitude: string;
+  longitude: string;
   best_time: string;
   difficulty: string;
   child_friendly: boolean;
@@ -37,6 +39,8 @@ const emptyFormData: LocationFormData = {
   category_id: 'vidikovac',
   country: 'Srbija',
   region: '',
+  latitude: '',
+  longitude: '',
   best_time: '',
   difficulty: 'Lako',
   child_friendly: true,
@@ -110,6 +114,8 @@ export default function EditLocationPage({ params }: { params: Promise<{ slug: s
         category_id: knownCategories.includes(categoryId) ? categoryId : '',
         country: data.country || 'Srbija',
         region: data.region || '',
+        latitude: data.latitude == null ? '' : String(data.latitude),
+        longitude: data.longitude == null ? '' : String(data.longitude),
         best_time: data.best_time || '',
         difficulty: data.difficulty || 'Lako',
         child_friendly: Boolean(data.child_friendly),
@@ -212,6 +218,8 @@ export default function EditLocationPage({ params }: { params: Promise<{ slug: s
         ...formData,
         category_id: finalCategory,
         difficulty: finalCategory === 'planina' ? formData.difficulty : null,
+        latitude: formData.latitude ? Number(formData.latitude) : null,
+        longitude: formData.longitude ? Number(formData.longitude) : null,
         cover_image: coverImageUrl,
         images: [...existingGalleryImages, ...newGalleryUrls],
       };
@@ -373,6 +381,28 @@ export default function EditLocationPage({ params }: { params: Promise<{ slug: s
                   type="text"
                   value={formData.region}
                   onChange={(e) => setFormData({ ...formData, region: e.target.value })}
+                  className="w-full px-4 py-3 border border-gray-200 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-900 dark:text-white text-sm focus:ring-2 focus:ring-[#006D44] focus:outline-none"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 dark:text-zinc-400 mb-1">Latitude</label>
+                <input
+                  type="number"
+                  step="any"
+                  value={formData.latitude}
+                  onChange={(e) => setFormData({ ...formData, latitude: e.target.value })}
+                  className="w-full px-4 py-3 border border-gray-200 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-900 dark:text-white text-sm focus:ring-2 focus:ring-[#006D44] focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 dark:text-zinc-400 mb-1">Longitude</label>
+                <input
+                  type="number"
+                  step="any"
+                  value={formData.longitude}
+                  onChange={(e) => setFormData({ ...formData, longitude: e.target.value })}
                   className="w-full px-4 py-3 border border-gray-200 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-900 dark:text-white text-sm focus:ring-2 focus:ring-[#006D44] focus:outline-none"
                 />
               </div>
