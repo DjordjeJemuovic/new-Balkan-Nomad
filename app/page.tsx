@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../src/lib/supabase';
 import Link from 'next/link';
-import { Home, Search, Heart, User, PlusCircle, MapPin, Compass, Trash2, Loader2, Globe } from 'lucide-react';
+import { Home, Search, Heart, User, PlusCircle, MapPin, Compass, Trash2, Loader2, Globe, Pencil } from 'lucide-react';
 
 export default function HomePage() {
   const [user, setUser] = useState<any>(null);
@@ -180,15 +180,25 @@ export default function HomePage() {
               return (
                 <div key={loc.id} className="group relative bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-900 rounded-3xl overflow-hidden shadow-sm hover:shadow-md transition duration-200">
                   
-                  {/* Dugme za brisanje */}
+                  {/* Admin akcije */}
                   {role === 'admin' && (
-                    <button 
-                      onClick={() => handleDelete(loc.id, loc.title)} 
-                      disabled={deletingId === loc.id} 
-                      className="absolute top-4 left-4 p-2 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md rounded-xl text-red-500 hover:text-red-700 shadow-sm transition z-30"
-                    >
-                      {deletingId === loc.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                    </button>
+                    <div className="absolute top-4 left-4 flex gap-2 z-30">
+                      <Link
+                        href={`/admin/locations/${loc.slug}/edit`}
+                        className="p-2 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md rounded-xl text-[#006D44] hover:text-emerald-700 shadow-sm transition"
+                        aria-label={`Izmeni lokaciju ${loc.title}`}
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </Link>
+                      <button
+                        onClick={() => handleDelete(loc.id, loc.title)}
+                        disabled={deletingId === loc.id}
+                        className="p-2 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md rounded-xl text-red-500 hover:text-red-700 shadow-sm transition"
+                        aria-label={`Obriši lokaciju ${loc.title}`}
+                      >
+                        {deletingId === loc.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                      </button>
+                    </div>
                   )}
 
                   {/* DINAMIČKI LINK */}

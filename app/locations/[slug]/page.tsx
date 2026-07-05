@@ -4,7 +4,7 @@ import { useState, useEffect, use } from 'react';
 import { supabase } from '../../../src/lib/supabase';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, MapPin, Calendar, Compass, ShieldCheck, Info, Sparkles } from 'lucide-react';
+import { ArrowLeft, MapPin, Calendar, Compass, ShieldCheck, Info, Sparkles, Pencil } from 'lucide-react';
 
 export default function LocationDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   // Otpakivanje params-a u Next.js 15+ okruženju
@@ -14,8 +14,22 @@ export default function LocationDetailPage({ params }: { params: Promise<{ slug:
   const [location, setLocation] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [activeImage, setActiveImage] = useState<string>('');
+  const [role, setRole] = useState<string>('user');
 
   useEffect(() => {
+    async function checkUserRole() {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) return;
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', session.user.id)
+        .single();
+
+      if (profile?.role) setRole(profile.role);
+    }
+
     async function fetchLocationDetails() {
       setLoading(true);
       const { data, error } = await supabase
@@ -33,6 +47,7 @@ export default function LocationDetailPage({ params }: { params: Promise<{ slug:
       setLoading(false);
     }
 
+    checkUserRole();
     fetchLocationDetails();
   }, [resolvedParams.slug]);
 
@@ -66,9 +81,18 @@ export default function LocationDetailPage({ params }: { params: Promise<{ slug:
         <button onClick={() => router.back()} className="p-1 hover:bg-gray-100 dark:hover:bg-zinc-900 rounded-full transition">
           <ArrowLeft className="w-5 h-5 text-zinc-800 dark:text-white" />
         </button>
-        <span className="text-sm font-black text-zinc-900 dark:text-white tracking-tight uppercase line-clamp-1">
+        <span className="flex-1 text-sm font-black text-zinc-900 dark:text-white tracking-tight uppercase line-clamp-1">
           {location.title}
         </span>
+        {role === 'admin' && (
+          <Link
+            href={`/admin/locations/${location.slug}/edit`}
+            className="p-2 bg-emerald-50 dark:bg-emerald-950/40 text-[#006D44] dark:text-emerald-400 rounded-xl border border-emerald-100 dark:border-emerald-900/60 hover:bg-emerald-100/70 transition"
+            aria-label={`Izmeni lokaciju ${location.title}`}
+          >
+            <Pencil className="w-4 h-4" />
+          </Link>
+        )}
       </div>
 
       {/* VELIKI PREGLED SLIKE (VELIKA FOTOGRAFIJA) */}
