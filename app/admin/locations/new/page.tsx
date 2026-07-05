@@ -60,17 +60,20 @@ export default function NewLocationPage() {
     }
   };
 
-  const uploadImage = async (file: File, folder: string): Promise<string | null> => {
+  const uploadImage = async (file: File, folder: string): Promise<string> => {
     const fileExt = file.name.split('.').pop();
     const fileName = `${folder}/${Date.now()}-${Math.random().toString(36).substring(2, 7)}.${fileExt}`;
 
-    const { data, error } = await supabase.storage
+    const { error } = await supabase.storage
       .from('locations')
-      .upload(fileName, file);
+      .upload(fileName, file, {
+        cacheControl: '3600',
+        upsert: false,
+      });
 
     if (error) {
       console.error('Storage upload greška:', error.message);
-      return null;
+      throw new Error(`Greska pri uploadu slike "${file.name}": ${error.message}`);
     }
 
     const { data: { publicUrl } } = supabase.storage
@@ -100,17 +103,17 @@ export default function NewLocationPage() {
 
     try {
       let coverImageUrl = '';
-      let galleryUrls: string[] = [];
+      const galleryUrls: string[] = [];
 
       if (coverFile) {
         const url = await uploadImage(coverFile, 'covers');
-        if (url) coverImageUrl = url;
+        coverImageUrl = url;
       }
 
       if (galleryFiles && galleryFiles.length > 0) {
         for (let i = 0; i < galleryFiles.length; i++) {
           const url = await uploadImage(galleryFiles[i], 'gallery');
-          if (url) galleryUrls.push(url);
+          galleryUrls.push(url);
         }
       }
 
@@ -134,7 +137,8 @@ export default function NewLocationPage() {
         }, 1500);
       }
     } catch (err) {
-      setMessage({ text: 'Došlo je do greške prilikom obrade podataka.', isError: true });
+      const errorMessage = err instanceof Error ? err.message : 'Doslo je do greske prilikom obrade podataka.';
+      setMessage({ text: errorMessage, isError: true });
     } finally {
       setLoading(false);
     }

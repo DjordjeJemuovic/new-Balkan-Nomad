@@ -96,7 +96,7 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* HERO SEKCIJA SA POZADINOM BALKANSKE DIVLJINE */}
+      {/* HERO SEKCIJA */}
       <div className="px-4 mt-4 mb-6">
         <div className="relative h-56 rounded-3xl overflow-hidden bg-zinc-800 flex items-end p-6">
           <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent z-10" />
@@ -111,7 +111,7 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* INPUT PRETRAGA + SELEKTOR DRŽAVE */}
+        {/* PRETRAGA I SELEKTOR */}
         <div className="mt-4 space-y-2">
           <div className="relative">
             <Search className="absolute left-4 top-3.5 h-5 w-5 text-gray-400" />
@@ -170,63 +170,75 @@ export default function HomePage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-5">
-            {filteredLocations.map((loc) => (
-              <div key={loc.id} className="group relative bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-900 rounded-3xl overflow-hidden shadow-sm hover:shadow-md transition duration-200">
-                
-                {/* Dugme za brisanje (ostaje van Link-a kako klik na kanticu ne bi otvorio stranicu) */}
-                {role === 'admin' && (
-                  <button 
-                    onClick={() => handleDelete(loc.id, loc.title)} 
-                    disabled={deletingId === loc.id} 
-                    className="absolute top-4 left-4 p-2 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md rounded-xl text-red-500 hover:text-red-700 shadow-sm transition z-30"
-                  >
-                    {deletingId === loc.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                  </button>
-                )}
+            {filteredLocations.map((loc) => {
+              // Ispisujemo objekat u konzolu da na licu mesta vidiš šta baza tačno vraća
+              console.log("Podaci iz baze za lokaciju:", loc.title, loc);
 
-                {/* DINAMIČKI LINK KOJI VODI NA DETALJNU STRANICU LOKACIJE */}
-                <Link href={`/locations/${loc.slug}`} className="block cursor-pointer">
-                  <div className="relative h-48 w-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
-                    <img src={loc.cover_image || "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=800&q=80"} alt={loc.title} className="w-full h-full object-cover group-hover:scale-105 transition duration-500" />
-                    
-                    {loc.difficulty && (
-                      <span className={`absolute top-4 right-4 text-[10px] font-bold uppercase px-2.5 py-1 rounded-full shadow-sm text-white ${
-                        loc.difficulty === 'Lako' ? 'bg-emerald-600' : loc.difficulty === 'Srednje' ? 'bg-amber-600' : 'bg-red-600'
-                      }`}>
-                        {loc.difficulty}
-                      </span>
-                    )}
-                  </div>
+              // Provera alternativnih naziva kolona ako cover_image vrati prazno
+              const imageSource = loc.cover_image || loc.cover_url || loc.image || "https://placeholder.co/800x450/27272a/ffffff?text=Nema+Slike+u+Bazi";
 
-                  <div className="p-5 space-y-2">
-                    <div className="flex items-center gap-1 text-xs text-gray-400 font-medium">
-                      <MapPin className="w-3.5 h-3.5 text-gray-400" />
-                      <span>{loc.region ? `${loc.region}, ` : ''}{loc.country}</span>
+              return (
+                <div key={loc.id} className="group relative bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-900 rounded-3xl overflow-hidden shadow-sm hover:shadow-md transition duration-200">
+                  
+                  {/* Dugme za brisanje */}
+                  {role === 'admin' && (
+                    <button 
+                      onClick={() => handleDelete(loc.id, loc.title)} 
+                      disabled={deletingId === loc.id} 
+                      className="absolute top-4 left-4 p-2 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md rounded-xl text-red-500 hover:text-red-700 shadow-sm transition z-30"
+                    >
+                      {deletingId === loc.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                    </button>
+                  )}
+
+                  {/* DINAMIČKI LINK */}
+                  <Link href={`/locations/${loc.slug}`} className="block cursor-pointer">
+                    <div className="relative h-48 w-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
+                      <img 
+                        src={imageSource} 
+                        alt={loc.title} 
+                        className="w-full h-full object-cover group-hover:scale-105 transition duration-500" 
+                      />
+                      
+                      {loc.difficulty && (
+                        <span className={`absolute top-4 right-4 text-[10px] font-bold uppercase px-2.5 py-1 rounded-full shadow-sm text-white ${
+                          loc.difficulty === 'Lako' ? 'bg-emerald-600' : loc.difficulty === 'Srednje' ? 'bg-amber-600' : 'bg-red-600'
+                        }`}>
+                          {loc.difficulty}
+                        </span>
+                      )}
                     </div>
 
-                    <h4 className="text-base font-black text-zinc-900 dark:text-white tracking-tight group-hover:text-[#006D44] dark:group-hover:text-emerald-400 transition">
-                      {loc.title}
-                    </h4>
+                    <div className="p-5 space-y-2">
+                      <div className="flex items-center gap-1 text-xs text-gray-400 font-medium">
+                        <MapPin className="w-3.5 h-3.5 text-gray-400" />
+                        <span>{loc.region ? `${loc.region}, ` : ''}{loc.country}</span>
+                      </div>
 
-                    {loc.short_description && (
-                      <p className="text-xs text-gray-500 dark:text-zinc-400 line-clamp-2 leading-relaxed">
-                        {loc.short_description}
-                      </p>
-                    )}
+                      <h4 className="text-base font-black text-zinc-900 dark:text-white tracking-tight group-hover:text-[#006D44] dark:group-hover:text-emerald-400 transition">
+                        {loc.title}
+                      </h4>
 
-                    <div className="flex flex-wrap gap-1.5 pt-2 border-t border-gray-50 dark:border-zinc-800/60 mt-3">
-                      <span className="text-[10px] font-bold bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 px-2 py-0.5 rounded-md uppercase">
-                        #{loc.category_id}
-                      </span>
-                      {loc.child_friendly && <span className="text-[10px] font-semibold bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded-md">👶 Deca OK</span>}
-                      {loc.pet_allowed && <span className="text-[10px] font-semibold bg-purple-50 dark:bg-purple-950/30 text-purple-600 dark:text-purple-400 px-2 py-0.5 rounded-md">🐾 Pet Friendly</span>}
-                      {loc.parking_available && <span className="text-[10px] font-semibold bg-amber-50 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded-md">🚗 Parking</span>}
+                      {loc.short_description && (
+                        <p className="text-xs text-gray-500 dark:text-zinc-400 line-clamp-2 leading-relaxed">
+                          {loc.short_description}
+                        </p>
+                      )}
+
+                      <div className="flex flex-wrap gap-1.5 pt-2 border-t border-gray-50 dark:border-zinc-800/60 mt-3">
+                        <span className="text-[10px] font-bold bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 px-2 py-0.5 rounded-md uppercase">
+                          #{loc.category_id}
+                        </span>
+                        {loc.child_friendly && <span className="text-[10px] font-semibold bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded-md">👶 Deca OK</span>}
+                        {loc.pet_allowed && <span className="text-[10px] font-semibold bg-purple-50 dark:bg-purple-950/30 text-purple-600 dark:text-purple-400 px-2 py-0.5 rounded-md">🐾 Pet Friendly</span>}
+                        {loc.parking_available && <span className="text-[10px] font-semibold bg-amber-50 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded-md">🚗 Parking</span>}
+                      </div>
                     </div>
-                  </div>
-                </Link>
+                  </Link>
 
-              </div>
-            ))}
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
