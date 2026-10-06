@@ -89,7 +89,7 @@ export default function LocationDetailPage({ params }: { params: Promise<{ slug:
   }, [slug]);
 
   if (loading) return null;
-  if (!location) return <main className="mx-auto min-h-screen max-w-3xl bg-[#101310] px-6 py-16 text-center text-zinc-300"><p>Ova lokacija nije pronađena.</p><Link href="/" className="mt-5 inline-block rounded-full bg-emerald-700 px-5 py-3 text-sm font-semibold text-white">Nazad na destinacije</Link></main>;
+  if (!location) return <main className="mx-auto min-h-screen max-w-3xl bg-white dark:bg-[#101310] px-6 py-16 text-center text-zinc-700 dark:text-zinc-300"><p>Ova lokacija nije pronađena.</p><Link href="/" className="mt-5 inline-block rounded-full bg-emerald-700 px-5 py-3 text-sm font-semibold text-white">Nazad na destinacije</Link></main>;
 
   const images = [...new Set([location.cover_image, ...(Array.isArray(location.images) ? location.images : [])].filter((image): image is string => typeof image === 'string' && !!image))].slice(0, 6);
   const activities = groupActivityDescriptions(locationItems.length
@@ -118,7 +118,7 @@ export default function LocationDetailPage({ params }: { params: Promise<{ slug:
   ];
   const selectedExploreTab = exploreTabs.find((tab) => tab.id === activeExploreTab) ?? exploreTabs[0];
 
-  return <main className="mx-auto min-h-screen w-full max-w-3xl min-w-0 bg-[#101310] pb-28 text-zinc-100 shadow-2xl">
+  return <main className="mx-auto min-h-screen w-full max-w-3xl min-w-0 bg-white dark:bg-[#101310] pb-28 text-zinc-900 dark:text-zinc-100 shadow-2xl">
     <header className="absolute z-20 flex w-full max-w-3xl items-center justify-between px-4 py-4 sm:px-5">
       <button onClick={() => router.back()} aria-label="Nazad" className="rounded-full border border-white/15 bg-black/35 p-2.5 text-white backdrop-blur-md"><ArrowLeft className="h-5 w-5" /></button>
       <div className="flex gap-2">
@@ -140,44 +140,44 @@ export default function LocationDetailPage({ params }: { params: Promise<{ slug:
       </div>
     </section>
 
-    <div className="grid grid-cols-2 gap-px border-y border-white/[0.06] bg-white/[0.06] sm:grid-cols-4">
-      {[[CalendarDays, 'Najbolje vreme', location.best_time || 'Tokom cele godine'], [Mountain, 'Težina', location.difficulty || 'Za svakoga'], [Clock3, 'Trajanje', location.duration_text || location.duration || 'Nije navedeno'], [Route, 'Nadmorska visina', (location.elevation_m ?? location.elevation) ? `${location.elevation_m ?? location.elevation} m` : 'Nije navedena']].map(([Icon, label, value]: any) => <div key={label} className="flex min-h-[76px] items-center gap-3 bg-[#151915] px-4 py-3"><Icon className="h-5 w-5 shrink-0 text-emerald-400" /><div className="min-w-0"><p className="text-[11px] text-zinc-500">{label}</p><p className="truncate text-sm font-medium text-zinc-200">{value}</p></div></div>)}
+    <div className="grid grid-cols-2 gap-px border-y border-gray-200 bg-gray-200 dark:border-white/[0.06] dark:bg-white/[0.06] sm:grid-cols-4">
+      {[[CalendarDays, 'Najbolje vreme', location.best_time || 'Tokom cele godine'], [Mountain, 'Težina', location.difficulty || 'Za svakoga'], [Clock3, 'Trajanje', location.duration_text || location.duration || 'Nije navedeno'], [Route, 'Nadmorska visina', (location.elevation_m ?? location.elevation) ? `${location.elevation_m ?? location.elevation} m` : 'Nije navedena']].map(([Icon, label, value]: any) => <div key={label} className="flex min-h-[76px] items-center gap-3 bg-zinc-50 dark:bg-[#151915] px-4 py-3"><Icon className="h-5 w-5 shrink-0 text-emerald-400" /><div className="min-w-0"><p className="text-[11px] text-zinc-500 dark:text-zinc-500">{label}</p><p className="truncate text-sm font-medium text-zinc-800 dark:text-zinc-200">{value}</p></div></div>)}
     </div>
 
-    <nav aria-label="Sadržaj lokacije" className="sticky top-0 z-30 border-b border-white/[0.07] bg-[#101310]/95 px-5 backdrop-blur-xl md:px-8"><div className="flex gap-5 overflow-x-auto py-3 text-sm font-medium text-zinc-400">{[['overview','Pregled'],['explore','Istraži'],['practical','Praktično']].map(([id, label]) => <a key={id} href={`#${id}`} aria-current={activeTab === id ? 'location' : undefined} onClick={() => setActiveTab(id)} className={`relative shrink-0 py-1 transition ${activeTab === id ? 'font-semibold text-emerald-300 after:absolute after:inset-x-0 after:-bottom-3 after:h-0.5 after:rounded-full after:bg-emerald-400' : 'hover:text-emerald-200'}`}>{label}</a>)}</div></nav>
+    <nav aria-label="Sadržaj lokacije" className="sticky top-0 z-30 border-b border-gray-200 bg-white/95 px-5 backdrop-blur-xl dark:border-white/[0.07] dark:bg-[#101310]/95 md:px-8"><div className="flex gap-5 overflow-x-auto py-3 text-sm font-medium text-zinc-600 dark:text-zinc-400">{[['overview','Pregled'],['explore','Istraži'],['practical','Praktično']].map(([id, label]) => <a key={id} href={`#${id}`} aria-current={activeTab === id ? 'location' : undefined} onClick={() => setActiveTab(id)} className={`relative shrink-0 py-1 transition ${activeTab === id ? 'font-semibold text-emerald-700 dark:text-emerald-300 after:absolute after:inset-x-0 after:-bottom-3 after:h-0.5 after:rounded-full after:bg-emerald-400' : 'hover:text-emerald-700 dark:hover:text-emerald-200'}`}>{label}</a>)}</div></nav>
 
     <section id="overview" className="scroll-mt-32 px-5 py-7 md:px-8">
-      <h2 className="mb-3 text-lg font-semibold text-white">O destinaciji</h2>
-      <p className={`whitespace-pre-wrap text-sm leading-6 text-zinc-400 ${expanded ? '' : 'line-clamp-3'}`}>{shortDescription}</p>
-      {(description !== shortDescription || shortDescription.length > 160) && <button onClick={() => setExpanded(!expanded)} className="mt-2 text-sm font-semibold text-emerald-400">{expanded ? 'Prikaži manje' : 'Pročitaj više'}</button>}
-      {expanded && description !== shortDescription && <p className="mt-4 whitespace-pre-wrap text-sm leading-6 text-zinc-400">{description}</p>}
+      <h2 className="mb-3 text-lg font-semibold text-zinc-900 dark:text-white">O destinaciji</h2>
+      <p className={`whitespace-pre-wrap text-sm leading-6 text-zinc-600 dark:text-zinc-400 ${expanded ? '' : 'line-clamp-3'}`}>{shortDescription}</p>
+      {(description !== shortDescription || shortDescription.length > 160) && <button onClick={() => setExpanded(!expanded)} className="mt-2 text-sm font-semibold text-emerald-700 dark:text-emerald-400">{expanded ? 'Prikaži manje' : 'Pročitaj više'}</button>}
+      {expanded && description !== shortDescription && <p className="mt-4 whitespace-pre-wrap text-sm leading-6 text-zinc-600 dark:text-zinc-400">{description}</p>}
     </section>
 
     <section id="explore" className="scroll-mt-16 px-5 py-7 md:px-8">
-      <h2 className="mb-4 text-lg font-semibold text-white">Šta možeš da radiš i posetiš</h2>
-      <div role="tablist" aria-label="Kategorije lokacije" className="mb-5 flex gap-2 overflow-x-auto rounded-2xl border border-white/[0.07] bg-[#171b18] p-2">
-        {exploreTabs.map((tab) => <button key={tab.id} id={`tab-${tab.id}`} type="button" role="tab" aria-selected={activeExploreTab === tab.id} aria-controls="explore-panel" onClick={() => setActiveExploreTab(tab.id)} className={`inline-flex shrink-0 items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition ${activeExploreTab === tab.id ? 'bg-emerald-700 text-white shadow-lg shadow-emerald-950/40' : 'text-zinc-400 hover:bg-white/[0.05] hover:text-white'}`}>{tab.icon}{tab.label}<span className={`rounded-full px-2 py-0.5 text-xs ${activeExploreTab === tab.id ? 'bg-white/15 text-white' : 'bg-white/[0.06] text-zinc-400'}`}>{tab.cards.length}</span></button>)}
+      <h2 className="mb-4 text-lg font-semibold text-zinc-900 dark:text-white">Šta možeš da radiš i posetiš</h2>
+      <div role="tablist" aria-label="Kategorije lokacije" className="mb-5 flex gap-2 overflow-x-auto rounded-2xl border border-gray-200 dark:border-white/[0.07] bg-gray-50 dark:bg-[#171b18] p-2">
+        {exploreTabs.map((tab) => <button key={tab.id} id={`tab-${tab.id}`} type="button" role="tab" aria-selected={activeExploreTab === tab.id} aria-controls="explore-panel" onClick={() => setActiveExploreTab(tab.id)} className={`inline-flex shrink-0 items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition ${activeExploreTab === tab.id ? 'bg-emerald-700 text-white shadow-lg shadow-emerald-950/40' : 'text-zinc-600 hover:bg-white hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-white/[0.05] dark:hover:text-white'}`}>{tab.icon}{tab.label}<span className={`rounded-full px-2 py-0.5 text-xs ${activeExploreTab === tab.id ? 'bg-white/15 text-white' : 'bg-gray-200 text-zinc-600 dark:bg-white/[0.06] dark:text-zinc-400'}`}>{tab.cards.length}</span></button>)}
       </div>
       <div id="explore-panel" role="tabpanel" aria-labelledby={`tab-${selectedExploreTab.id}`} className="min-h-48">
-        <div className="mb-4 flex items-center gap-2 text-sm font-medium text-zinc-400">{selectedExploreTab.icon}<span>{selectedExploreTab.label}</span></div>
-        {selectedExploreTab.cards.length ? <div className="divide-y divide-white/[0.08]">{selectedExploreTab.cards.map((card, index) => <article key={`${card.title}-${index}`} className="py-6 first:pt-1 last:pb-1">
+        <div className="mb-4 flex items-center gap-2 text-sm font-medium text-zinc-600 dark:text-zinc-400">{selectedExploreTab.icon}<span>{selectedExploreTab.label}</span></div>
+        {selectedExploreTab.cards.length ? <div className="divide-y divide-gray-200 dark:divide-white/[0.08]">{selectedExploreTab.cards.map((card, index) => <article key={`${card.title}-${index}`} className="py-6 first:pt-1 last:pb-1">
           {card.image && <img src={card.image} alt={card.title} className="mb-5 max-h-72 w-full rounded-2xl object-cover" />}
-          <h3 className="break-words text-lg font-semibold tracking-tight text-white sm:text-xl">{card.title}</h3>
-          {card.description && <p className="mt-3 break-words whitespace-pre-wrap text-[15px] leading-7 text-zinc-300">{card.description}</p>}
-          {!card.description && card.subtitle && <p className="mt-3 break-words whitespace-pre-wrap text-[15px] leading-7 text-zinc-300">{card.subtitle}</p>}
-          <div className="mt-4 flex flex-wrap gap-x-4 gap-y-2 text-xs font-medium text-emerald-300">{[card.kind, card.season, card.difficulty, card.price, card.distance].filter(Boolean).map((label) => <span key={label}>{label}</span>)}</div>
-        </article>)}</div> : <div className="py-8 text-sm text-zinc-500">Ova kategorija još nema unetih stavki.</div>}
+          <h3 className="break-words text-lg font-semibold tracking-tight text-zinc-900 dark:text-white sm:text-xl">{card.title}</h3>
+          {card.description && <p className="mt-3 break-words whitespace-pre-wrap text-[15px] leading-7 text-zinc-700 dark:text-zinc-300">{card.description}</p>}
+          {!card.description && card.subtitle && <p className="mt-3 break-words whitespace-pre-wrap text-[15px] leading-7 text-zinc-700 dark:text-zinc-300">{card.subtitle}</p>}
+          <div className="mt-4 flex flex-wrap gap-x-4 gap-y-2 text-xs font-medium text-emerald-700 dark:text-emerald-300">{[card.kind, card.season, card.difficulty, card.price, card.distance].filter(Boolean).map((label) => <span key={label}>{label}</span>)}</div>
+        </article>)}</div> : <div className="py-8 text-sm text-zinc-500 dark:text-zinc-500">Ova kategorija još nema unetih stavki.</div>}
       </div>
     </section>
 
     <section id="practical" className="scroll-mt-32 px-5 py-7 md:px-8">
-      <h2 className="mb-4 text-lg font-semibold text-white">Praktične informacije</h2>
-      {(Array.isArray(location.warnings) ? location.warnings : location.warning ? [location.warning] : []).map((warning: string, index: number) => <div key={`${warning}-${index}`} className="mb-4 flex gap-3 rounded-2xl border border-orange-400/20 bg-orange-400/10 p-4 text-orange-100"><ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-orange-400" /><div><p className="text-sm font-semibold">Važno za bezbednost</p><p className="mt-1 text-sm leading-5 text-orange-100/75">{warning}</p></div></div>)}
-      <div className="mb-5 flex flex-wrap gap-2">{[[Baby,'Deca',location.child_friendly], [PawPrint,'Ljubimci',location.pet_allowed], [ParkingCircle,'Parking',location.parking_available]].map(([Icon, label, yes]: any) => <span key={label} className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs ${yes ? 'border-sky-400/20 bg-sky-400/10 text-sky-200' : 'border-white/[0.06] bg-white/[0.03] text-zinc-600'}`}><Icon className="h-3.5 w-3.5" />{label}{yes && <Check className="h-3 w-3" />}</span>)}</div>
+      <h2 className="mb-4 text-lg font-semibold text-zinc-900 dark:text-white">Praktične informacije</h2>
+      {(Array.isArray(location.warnings) ? location.warnings : location.warning ? [location.warning] : []).map((warning: string, index: number) => <div key={`${warning}-${index}`} className="mb-4 flex gap-3 rounded-2xl border border-orange-400/20 bg-orange-400/10 p-4 text-orange-800 dark:text-orange-100"><ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-orange-500" /><div><p className="text-sm font-semibold">Važno za bezbednost</p><p className="mt-1 text-sm leading-5 text-orange-800/80 dark:text-orange-100/75">{warning}</p></div></div>)}
+      <div className="mb-5 flex flex-wrap gap-2">{[[Baby,'Deca',location.child_friendly], [PawPrint,'Ljubimci',location.pet_allowed], [ParkingCircle,'Parking',location.parking_available]].map(([Icon, label, yes]: any) => <span key={label} className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs ${yes ? 'border-sky-400/20 bg-sky-400/10 text-sky-700 dark:text-sky-200' : 'border-gray-200 dark:border-white/[0.06] bg-gray-100 dark:bg-white/[0.03] text-zinc-600'}`}><Icon className="h-3.5 w-3.5" />{label}{yes && <Check className="h-3 w-3" />}</span>)}</div>
     </section>
 
-    <div className="fixed inset-x-0 bottom-0 z-40 mx-auto flex max-w-3xl gap-3 border-t border-white/[0.08] bg-[#151915]/95 px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-xl md:px-8">
-      <button onClick={toggleSaved} className={`flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-semibold ${saved ? 'border-emerald-500 bg-emerald-950 text-emerald-300' : 'border-white/10 bg-white/[0.04] text-zinc-100'}`}><Heart className={`h-4 w-4 ${saved ? 'fill-current' : ''}`} />{saved ? 'Sačuvano' : 'Sačuvaj'}</button>
+    <div className="fixed inset-x-0 bottom-0 z-40 mx-auto flex max-w-3xl gap-3 border-t border-gray-200 bg-white/95 px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-xl dark:border-white/[0.08] dark:bg-[#151915]/95 md:px-8">
+      <button onClick={toggleSaved} className={`flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-semibold ${saved ? 'border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300' : 'border-gray-200 bg-gray-50 text-zinc-900 dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-100'}`}><Heart className={`h-4 w-4 ${saved ? 'fill-current' : ''}`} />{saved ? 'Sačuvano' : 'Sačuvaj'}</button>
     </div>
   </main>;
 }
