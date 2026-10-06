@@ -5,6 +5,9 @@ import { supabase } from '../../../../src/lib/supabase';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Save, Loader2, Upload, Image as ImageIcon } from 'lucide-react';
 import Link from 'next/link';
+import { buildLocationItems, emptyLocationItemFormData } from '../../../../src/lib/location-items';
+import { describeSupabaseError } from '../../../../src/lib/supabase-error';
+import LocationItemsEditor from '../../../../src/components/location-items-editor';
 
 export default function NewLocationPage() {
   const router = useRouter();
@@ -24,17 +27,12 @@ export default function NewLocationPage() {
     category_id: 'vidikovac',
     country: 'Srbija',
     region: '',
-    latitude: '',
-    longitude: '',
     best_time: '',
     difficulty: 'Lako',
     duration: '',
     elevation: '',
     warning: '',
-    activitiesText: '',
-    attractionsText: '',
-    accommodationsText: '',
-    foodText: '',
+    ...emptyLocationItemFormData,
     child_friendly: true,
     parking_available: false,
     pet_allowed: false,
@@ -43,12 +41,6 @@ export default function NewLocationPage() {
   // Stanje za fajlove
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [galleryFiles, setGalleryFiles] = useState<FileList | null>(null);
-
-  const parseItems = (value: string, type: 'activity' | 'attraction' | 'stay' | 'food') => value.split('\n').map((line) => line.split('|').map((part) => part.trim())).filter(([title]) => Boolean(title)).map(([title, second, third, fourth]) => {
-    if (type === 'activity') return { title, subtitle: second || undefined, difficulty: third || undefined };
-    if (type === 'attraction') return { title, image: second || undefined };
-    return { title, kind: second || undefined, price: third || undefined, distance: fourth || undefined };
-  });
 
   // Automatsko generisanje sluga
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -87,7 +79,6 @@ export default function NewLocationPage() {
       });
 
     if (error) {
-      console.error('Storage upload greška:', error.message);
       throw new Error(`Greska pri uploadu slike "${file.name}": ${error.message}`);
     }
 
@@ -132,29 +123,38 @@ export default function NewLocationPage() {
         }
       }
 
-      const { activitiesText, attractionsText, accommodationsText, foodText, ...locationFields } = formData;
+      const { activities, attractions, accommodations, food, duration, elevation, warning, ...locationFields } = formData;
       const payload = {
         ...locationFields,
         category_id: finalCategory,
         difficulty: finalDifficulty,
-        duration: formData.duration || null,
-        elevation: formData.elevation ? Number(formData.elevation) : null,
-        warning: formData.warning || null,
-        activities: parseItems(activitiesText, 'activity'),
-        attractions: parseItems(attractionsText, 'attraction'),
-        accommodations: parseItems(accommodationsText, 'stay'),
-        food: parseItems(foodText, 'food'),
-        latitude: formData.latitude ? Number(formData.latitude) : null,
-        longitude: formData.longitude ? Number(formData.longitude) : null,
+        duration_text: duration || null,
+        elevation_m: elevation ? Number(elevation) : null,
+        warnings: warning.split(/\r?\n/).map((item) => item.trim()).filter(Boolean),
         cover_image: coverImageUrl,
         images: galleryUrls,
       };
 
-      const { error } = await supabase.from('locations').insert([payload]);
+      const { data: location, error } = await supabase.from('locations').insert([payload]).select('id').single();
 
       if (error) {
-        setMessage({ text: `Greška pri upisu u bazu: ${error.message}`, isError: true });
+        setMessage({ text: `Greška pri upisu u bazu: ${describeSupabaseError(error)}`, isError: true });
       } else {
+        const items = buildLocationItems({ activities, attractions, accommodations, food })
+          .map((item) => ({ ...item, location_id: location.id }));
+        if (items.length) {
+          const { data: savedItems, error: itemsError } = await supabase.from('location_items').insert(items).select('latitude,longitude');
+          if (itemsError) {
+            setMessage({ text: `Lokacija je sačuvana, ali preporuke nisu: ${describeSupabaseError(itemsError)}`, isError: true });
+            return;
+          }
+          const expectedCoordinateItems = items.filter((item) => item.latitude != null && item.longitude != null).length;
+          const savedCoordinateItems = (savedItems || []).filter((item) => item.latitude != null && item.longitude != null).length;
+          if (savedCoordinateItems !== expectedCoordinateItems) {
+            setMessage({ text: `Lokacija je sačuvana, ali koordinate za stavke nisu upisane. Poslato: ${expectedCoordinateItems}, sačuvano: ${savedCoordinateItems}.`, isError: true });
+            return;
+          }
+        }
         setMessage({ text: 'Lokacija uspešno sačuvana!', isError: false });
         setTimeout(() => {
           router.push('/');
@@ -299,30 +299,6 @@ export default function NewLocationPage() {
               />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-gray-600 dark:text-zinc-400 mb-1">Latitude</label>
-              <input
-                type="number"
-                step="any"
-                value={formData.latitude}
-                onChange={(e) => setFormData({ ...formData, latitude: e.target.value })}
-                placeholder="43.8563"
-                className="w-full px-4 py-3 border border-gray-200 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-900 dark:text-white text-sm focus:ring-2 focus:ring-[#006D44] focus:outline-none"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-gray-600 dark:text-zinc-400 mb-1">Longitude</label>
-              <input
-                type="number"
-                step="any"
-                value={formData.longitude}
-                onChange={(e) => setFormData({ ...formData, longitude: e.target.value })}
-                placeholder="19.4125"
-                className="w-full px-4 py-3 border border-gray-200 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-900 dark:text-white text-sm focus:ring-2 focus:ring-[#006D44] focus:outline-none"
-              />
-            </div>
-          </div>
           <div>
             <label className="block text-xs font-semibold text-gray-600 dark:text-zinc-400 mb-1">Najbolje vreme za posetu</label>
             <input
@@ -359,8 +335,7 @@ export default function NewLocationPage() {
 
         <div className="space-y-4 rounded-2xl border border-gray-100 bg-gray-50 p-5 dark:border-zinc-900 dark:bg-zinc-900/50">
           <h3 className="text-sm font-bold uppercase tracking-wider text-[#006D44]">Aktivnosti i preporuke</h3>
-          <p className="text-xs text-gray-500 dark:text-zinc-400">Jedna stavka po redu, vrednosti razdvojene znakom |. Aktivnost: naziv | sezona | težina. Znamenitost: naziv | URL fotografije. Smeštaj/hrana: naziv | tip | cena | udaljenost.</p>
-          {([["activitiesText", "Aktivnosti", "Planinarenje | Leto–jesen | Srednje"], ["attractionsText", "Priroda i znamenitosti", "Jezero Bâlea | https://…"], ["accommodationsText", "Smeštaj", "Planinska koliba | Koliba | 40–80 € | 2 km"], ["foodText", "Hrana", "Lokalni restoran | Restoran | 10–20 € | 500 m"]] as const).map(([field, label, placeholder]) => <div key={field}><label className="mb-1 block text-xs font-semibold text-gray-600 dark:text-zinc-400">{label}</label><textarea rows={2} value={formData[field]} onChange={(e) => setFormData({ ...formData, [field]: e.target.value })} placeholder={placeholder} className="w-full resize-y rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm dark:border-zinc-800 dark:bg-zinc-900 dark:text-white" /></div>)}
+          <LocationItemsEditor value={{ activities: formData.activities, attractions: formData.attractions, accommodations: formData.accommodations, food: formData.food }} onChange={(items) => setFormData({ ...formData, ...items })} />
         </div>
 
         <div className="rounded-2xl border border-orange-200 bg-orange-50 p-5 dark:border-orange-900/50 dark:bg-orange-950/20">

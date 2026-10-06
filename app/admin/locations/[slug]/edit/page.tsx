@@ -5,10 +5,13 @@ import { supabase } from '../../../../../src/lib/supabase';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Image as ImageIcon, Loader2, Save, Upload, X } from 'lucide-react';
 import Link from 'next/link';
+import { buildLocationItems, emptyLocationItemFormData, formatLocationItems, type LocationItemFormData } from '../../../../../src/lib/location-items';
+import { describeSupabaseError } from '../../../../../src/lib/supabase-error';
+import LocationItemsEditor from '../../../../../src/components/location-items-editor';
 
 const knownCategories = ['vidikovac', 'planina', 'jezero', 'vodopad'];
 
-type LocationFormData = {
+type LocationFormData = LocationItemFormData & {
   title: string;
   slug: string;
   short_description: string;
@@ -16,33 +19,24 @@ type LocationFormData = {
   category_id: string;
   country: string;
   region: string;
-  latitude: string;
-  longitude: string;
   best_time: string;
   difficulty: string;
   duration: string;
   elevation: string;
   warning: string;
-  activitiesText: string;
-  attractionsText: string;
-  accommodationsText: string;
-  foodText: string;
   child_friendly: boolean;
   parking_available: boolean;
   pet_allowed: boolean;
 };
 
-type LocationRow = LocationFormData & {
+type LocationRow = Record<string, any> & {
   id: string;
   cover_image: string | null;
   images: string[] | null;
-  duration?: string | null;
-  elevation?: number | null;
+  duration_text?: string | null;
+  elevation_m?: number | null;
+  warnings?: string[] | null;
   warning?: string | null;
-  activities?: unknown;
-  attractions?: unknown;
-  accommodations?: unknown;
-  food?: unknown;
 };
 
 const emptyFormData: LocationFormData = {
@@ -53,17 +47,12 @@ const emptyFormData: LocationFormData = {
   category_id: 'vidikovac',
   country: 'Srbija',
   region: '',
-  latitude: '',
-  longitude: '',
   best_time: '',
   difficulty: 'Lako',
   duration: '',
   elevation: '',
   warning: '',
-  activitiesText: '',
-  attractionsText: '',
-  accommodationsText: '',
-  foodText: '',
+  ...emptyLocationItemFormData,
   child_friendly: true,
   parking_available: false,
   pet_allowed: false,
@@ -122,17 +111,23 @@ export default function EditLocationPage({ params }: { params: Promise<{ slug: s
         return;
       }
 
+      const { data: locationItems, error: itemsError } = await supabase
+        .from('location_items')
+        .select('*')
+        .eq('location_id', data.id)
+        .order('sort_order');
+      if (itemsError) {
+        setMessage({ text: `Preporuke nisu učitane: ${describeSupabaseError(itemsError)}`, isError: true });
+        setLoading(false);
+        return;
+      }
+      const itemFields = formatLocationItems(locationItems || []);
+
       const categoryId = data.category_id || 'vidikovac';
 
       setLocationId(data.id);
       setExistingCoverImage(data.cover_image || '');
       setExistingGalleryImages(data.images || []);
-      const itemLines = (value: unknown, type: 'activity' | 'attraction' | 'stay' | 'food') => Array.isArray(value) ? value.map((item) => {
-        if (typeof item?.title !== 'string') return '';
-        if (type === 'activity') return [item.title, item.subtitle, item.difficulty].filter(Boolean).join(' | ');
-        if (type === 'attraction') return [item.title, item.image].filter(Boolean).join(' | ');
-        return [item.title, item.kind, item.price, item.distance].filter(Boolean).join(' | ');
-      }).filter(Boolean).join('\n') : '';
       setFormData({
         title: data.title || '',
         slug: data.slug || '',
@@ -141,17 +136,12 @@ export default function EditLocationPage({ params }: { params: Promise<{ slug: s
         category_id: knownCategories.includes(categoryId) ? categoryId : '',
         country: data.country || 'Srbija',
         region: data.region || '',
-        latitude: data.latitude == null ? '' : String(data.latitude),
-        longitude: data.longitude == null ? '' : String(data.longitude),
         best_time: data.best_time || '',
         difficulty: data.difficulty || 'Lako',
-        duration: data.duration || '',
-        elevation: data.elevation == null ? '' : String(data.elevation),
-        warning: data.warning || '',
-        activitiesText: itemLines(data.activities, 'activity'),
-        attractionsText: itemLines(data.attractions, 'attraction'),
-        accommodationsText: itemLines(data.accommodations, 'stay'),
-        foodText: itemLines(data.food, 'food'),
+        duration: data.duration_text || '',
+        elevation: data.elevation_m == null ? '' : String(data.elevation_m),
+        warning: Array.isArray(data.warnings) ? data.warnings.join('\n') : '',
+        ...itemFields,
         child_friendly: Boolean(data.child_friendly),
         parking_available: Boolean(data.parking_available),
         pet_allowed: Boolean(data.pet_allowed),
@@ -248,32 +238,57 @@ export default function EditLocationPage({ params }: { params: Promise<{ slug: s
         }
       }
 
-      const { activitiesText, attractionsText, accommodationsText, foodText, ...locationFields } = formData;
+      const { activities, attractions, accommodations, food, duration, elevation, warning, ...locationFields } = formData;
       const payload = {
         ...locationFields,
         category_id: finalCategory,
         difficulty: finalCategory === 'planina' ? formData.difficulty : null,
-        latitude: formData.latitude ? Number(formData.latitude) : null,
-        longitude: formData.longitude ? Number(formData.longitude) : null,
-        duration: formData.duration || null,
-        elevation: formData.elevation ? Number(formData.elevation) : null,
-        warning: formData.warning || null,
-        activities: activitiesText.split('\n').map((line) => line.split('|').map((part) => part.trim())).filter(([title]) => Boolean(title)).map(([title, subtitle, difficulty]) => ({ title, subtitle: subtitle || undefined, difficulty: difficulty || undefined })),
-        attractions: attractionsText.split('\n').map((line) => line.split('|').map((part) => part.trim())).filter(([title]) => Boolean(title)).map(([title, image]) => ({ title, image: image || undefined })),
-        accommodations: accommodationsText.split('\n').map((line) => line.split('|').map((part) => part.trim())).filter(([title]) => Boolean(title)).map(([title, kind, price, distance]) => ({ title, kind: kind || undefined, price: price || undefined, distance: distance || undefined })),
-        food: foodText.split('\n').map((line) => line.split('|').map((part) => part.trim())).filter(([title]) => Boolean(title)).map(([title, kind, price, distance]) => ({ title, kind: kind || undefined, price: price || undefined, distance: distance || undefined })),
+        duration_text: duration || null,
+        elevation_m: elevation ? Number(elevation) : null,
+        warnings: warning.split(/\r?\n/).map((item) => item.trim()).filter(Boolean),
         cover_image: coverImageUrl,
         images: [...existingGalleryImages, ...newGalleryUrls],
       };
 
-      const { error } = await supabase
+      const { data: savedLocation, error } = await supabase
         .from('locations')
         .update(payload)
-        .eq('id', locationId);
+        .eq('id', locationId)
+        .select('id,title')
+        .maybeSingle();
 
       if (error) {
-        setMessage({ text: `Greska pri izmeni destinacije: ${error.message}`, isError: true });
+        setMessage({ text: `Greška pri izmeni destinacije: ${describeSupabaseError(error)}`, isError: true });
         return;
+      }
+      if (!savedLocation) {
+        setMessage({ text: 'Supabase nije vratio izmenjeni red. UPDATE je verovatno blokiran RLS pravilom za locations ili ID lokacije ne odgovara nijednom redu.', isError: true });
+        return;
+      }
+      if (savedLocation.title !== formData.title) {
+        setMessage({ text: 'Promena nije upisana u bazu. Proveri da li trenutni korisnik ima admin dozvolu za izmenu lokacija.' , isError: true });
+        return;
+      }
+
+      const { error: deleteItemsError } = await supabase.from('location_items').delete().eq('location_id', locationId);
+      if (deleteItemsError) {
+        setMessage({ text: `Destinacija je izmenjena, ali preporuke nisu sačuvane: ${describeSupabaseError(deleteItemsError)}`, isError: true });
+        return;
+      }
+      const items = buildLocationItems({ activities, attractions, accommodations, food })
+        .map((item) => ({ ...item, location_id: locationId }));
+      if (items.length) {
+        const { data: savedItems, error: itemsError } = await supabase.from('location_items').insert(items).select('latitude,longitude');
+        if (itemsError) {
+          setMessage({ text: `Destinacija je izmenjena, ali preporuke nisu sačuvane: ${describeSupabaseError(itemsError)}`, isError: true });
+          return;
+        }
+        const expectedCoordinateItems = items.filter((item) => item.latitude != null && item.longitude != null).length;
+        const savedCoordinateItems = (savedItems || []).filter((item) => item.latitude != null && item.longitude != null).length;
+        if (savedCoordinateItems !== expectedCoordinateItems) {
+          setMessage({ text: `Destinacija je izmenjena, ali koordinate za stavke nisu upisane. Poslato: ${expectedCoordinateItems}, sačuvano: ${savedCoordinateItems}.`, isError: true });
+          return;
+        }
       }
 
       setMessage({ text: 'Destinacija je uspešno izmenjena.', isError: false });
@@ -427,28 +442,6 @@ export default function EditLocationPage({ params }: { params: Promise<{ slug: s
                 />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-semibold text-gray-600 dark:text-zinc-400 mb-1">Latitude</label>
-                <input
-                  type="number"
-                  step="any"
-                  value={formData.latitude}
-                  onChange={(e) => setFormData({ ...formData, latitude: e.target.value })}
-                  className="w-full px-4 py-3 border border-gray-200 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-900 dark:text-white text-sm focus:ring-2 focus:ring-[#006D44] focus:outline-none"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-gray-600 dark:text-zinc-400 mb-1">Longitude</label>
-                <input
-                  type="number"
-                  step="any"
-                  value={formData.longitude}
-                  onChange={(e) => setFormData({ ...formData, longitude: e.target.value })}
-                  className="w-full px-4 py-3 border border-gray-200 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-900 dark:text-white text-sm focus:ring-2 focus:ring-[#006D44] focus:outline-none"
-                />
-              </div>
-            </div>
             <div>
               <label className="block text-xs font-semibold text-gray-600 dark:text-zinc-400 mb-1">Najbolje vreme za posetu</label>
               <input
@@ -484,8 +477,7 @@ export default function EditLocationPage({ params }: { params: Promise<{ slug: s
 
           <div className="space-y-4 rounded-2xl border border-gray-100 bg-gray-50 p-5 dark:border-zinc-900 dark:bg-zinc-900/50">
             <h3 className="text-sm font-bold uppercase tracking-wider text-[#006D44]">Aktivnosti i preporuke</h3>
-            <p className="text-xs text-gray-500 dark:text-zinc-400">Jedna stavka po redu, vrednosti razdvojene znakom |. Aktivnost: naziv | sezona | težina. Znamenitost: naziv | URL fotografije. Smeštaj/hrana: naziv | tip | cena | udaljenost.</p>
-            {([["activitiesText", "Aktivnosti", "Planinarenje | Leto–jesen | Srednje"], ["attractionsText", "Priroda i znamenitosti", "Jezero Bâlea | https://…"], ["accommodationsText", "Smeštaj", "Planinska koliba | Koliba | 40–80 € | 2 km"], ["foodText", "Hrana", "Lokalni restoran | Restoran | 10–20 € | 500 m"]] as const).map(([field, label, placeholder]) => <div key={field}><label className="mb-1 block text-xs font-semibold text-gray-600 dark:text-zinc-400">{label}</label><textarea rows={2} value={formData[field]} onChange={(e) => setFormData({ ...formData, [field]: e.target.value })} placeholder={placeholder} className="w-full resize-y rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm dark:border-zinc-800 dark:bg-zinc-900 dark:text-white" /></div>)}
+            <LocationItemsEditor value={{ activities: formData.activities, attractions: formData.attractions, accommodations: formData.accommodations, food: formData.food }} onChange={(items) => setFormData({ ...formData, ...items })} />
           </div>
 
           <div className="rounded-2xl border border-orange-200 bg-orange-50 p-5 dark:border-orange-900/50 dark:bg-orange-950/20">

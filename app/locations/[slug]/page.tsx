@@ -4,34 +4,45 @@ import { use, useEffect, useState } from 'react';
 import { supabase } from '../../../src/lib/supabase';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, CalendarDays, Clock3, Compass, Heart, MapPin, Mountain, Pencil, Route, ShieldAlert, ParkingCircle, PawPrint, Baby, Utensils, BedDouble, Trees, ChevronRight, Navigation, Plus, Check } from 'lucide-react';
+import { ArrowLeft, CalendarDays, Clock3, Compass, Heart, MapPin, Mountain, Pencil, Route, ShieldAlert, ParkingCircle, PawPrint, Baby, Utensils, BedDouble, Trees, Plus, Check } from 'lucide-react';
 
-type ExploreCard = { title: string; subtitle?: string; image?: string; kind?: string; price?: string; distance?: string; difficulty?: string };
+type ExploreCard = { title: string; description?: string; subtitle?: string; image?: string; kind?: string; price?: string; distance?: string; difficulty?: string; season?: string };
 
 function getCards(value: unknown): ExploreCard[] {
   if (!Array.isArray(value)) return [];
   return value.filter((item): item is ExploreCard => !!item && typeof item === 'object' && typeof (item as ExploreCard).title === 'string');
 }
 
+function groupActivityDescriptions(cards: ExploreCard[]) {
+  return cards.reduce<ExploreCard[]>((grouped, card) => {
+    const previous = grouped[grouped.length - 1];
+    if (!card.description && card.title.length > 80 && previous && !previous.description) {
+      grouped[grouped.length - 1] = { ...previous, description: card.title };
+    } else {
+      grouped.push(card);
+    }
+    return grouped;
+  }, []);
+}
+
 export default function LocationDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = use(params);
   const router = useRouter();
   const [location, setLocation] = useState<any>(null);
+  const [locationItems, setLocationItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [role, setRole] = useState('user');
   const [saved, setSaved] = useState(false);
   const [expanded, setExpanded] = useState(false);
-  const [showAll, setShowAll] = useState<Record<string, boolean>>({});
-  const [mapFilter, setMapFilter] = useState('Sve');
   const [activeTab, setActiveTab] = useState('overview');
-  const [geocodedPosition, setGeocodedPosition] = useState<{ lat: number; lon: number } | null>(null);
+  const [activeExploreTab, setActiveExploreTab] = useState('activities');
 
   useEffect(() => {
     setSaved(window.localStorage.getItem(`balkan-nomad:saved:${slug}`) === 'true');
   }, [slug]);
 
   useEffect(() => {
-    const sections = ['overview', 'activities', 'nature', 'stay', 'practical']
+    const sections = ['overview', 'explore', 'practical']
       .map((id) => document.getElementById(id))
       .filter((section): section is HTMLElement => section !== null);
     const observer = new IntersectionObserver((entries) => {
@@ -62,59 +73,49 @@ export default function LocationDetailPage({ params }: { params: Promise<{ slug:
         const { data: profile } = await supabase.from('profiles').select('role').eq('id', session.user.id).single();
         if (profile?.role) setRole(profile.role);
       }
-      if (!error && data) setLocation(data);
+      if (!error && data) {
+        setLocation(data);
+        const { data: items, error: itemsError } = await supabase
+          .from('location_items')
+          .select('*')
+          .eq('location_id', data.id)
+          .order('sort_order');
+        if (!itemsError && items) setLocationItems(items);
+      }
       setLoading(false);
     }
     load();
   }, [slug]);
 
-  useEffect(() => {
-    if (!location) return;
-    const lat = Number(location.latitude ?? location.lat);
-    const lon = Number(location.longitude ?? location.lng ?? location.lon);
-    if (Number.isFinite(lat) && Number.isFinite(lon)) return;
-    const query = [location.title, location.region, location.country].filter(Boolean).join(', ');
-    const controller = new AbortController();
-    fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(query)}`, { signal: controller.signal })
-      .then((response) => response.ok ? response.json() : [])
-      .then((results) => {
-        const nextLat = Number(results?.[0]?.lat), nextLon = Number(results?.[0]?.lon);
-        if (Number.isFinite(nextLat) && Number.isFinite(nextLon)) setGeocodedPosition({ lat: nextLat, lon: nextLon });
-      }).catch(() => undefined);
-    return () => controller.abort();
-  }, [location]);
-
   if (loading) return <main className="mx-auto flex min-h-screen max-w-3xl items-center justify-center bg-[#101310] text-sm text-zinc-400">Učitavanje destinacije…</main>;
   if (!location) return <main className="mx-auto min-h-screen max-w-3xl bg-[#101310] px-6 py-16 text-center text-zinc-300"><p>Ova lokacija nije pronađena.</p><Link href="/" className="mt-5 inline-block rounded-full bg-emerald-700 px-5 py-3 text-sm font-semibold text-white">Nazad na destinacije</Link></main>;
 
   const images = [...new Set([location.cover_image, ...(Array.isArray(location.images) ? location.images : [])].filter((image): image is string => typeof image === 'string' && !!image))].slice(0, 6);
-  const lat = Number(location.latitude ?? location.lat), lon = Number(location.longitude ?? location.lng ?? location.lon);
-  const mapLat = Number.isFinite(lat) ? lat : geocodedPosition?.lat;
-  const mapLon = Number.isFinite(lon) ? lon : geocodedPosition?.lon;
-  const hasMap = typeof mapLat === 'number' && typeof mapLon === 'number';
-  const mapSrc = hasMap ? `https://www.openstreetmap.org/export/embed.html?bbox=${mapLon! - 0.03}%2C${mapLat! - 0.02}%2C${mapLon! + 0.03}%2C${mapLat! + 0.02}&layer=mapnik&marker=${mapLat}%2C${mapLon}` : '';
-  const mapLink = hasMap ? `https://www.openstreetmap.org/?mlat=${mapLat}&mlon=${mapLon}#map=14/${mapLat}/${mapLon}` : `https://www.openstreetmap.org/search?query=${encodeURIComponent([location.title, location.region, location.country].filter(Boolean).join(', '))}`;
-  const activities = getCards(location.activities);
-  const nature = getCards(location.attractions ?? location.sights);
-  const stays = getCards(location.accommodations ?? location.stays);
-  const food = getCards(location.food ?? location.restaurants);
+  const activities = groupActivityDescriptions(locationItems.length
+    ? locationItems.filter((item) => item.type === 'activity').map((item) => ({ title: item.title, description: item.description, season: Array.isArray(item.season) ? item.season.join(' · ') : undefined, difficulty: item.difficulty }))
+    : getCards(location.activities));
+  const nature = locationItems.length
+    ? locationItems.filter((item) => item.type === 'attraction').map((item) => ({ title: item.title, image: item.image_url, description: item.description }))
+    : getCards(location.attractions ?? location.sights);
+  const venueItems = locationItems.filter((item) => item.type === 'venue');
+  const getVenueDescription = (item: any) => typeof item.description === 'string' ? item.description.replace(/^\[[^\]]+\]\s*/, '') : undefined;
+  const stays = venueItems.length
+    ? venueItems.filter((item) => item.subtype === 'accommodation' || (typeof item.description === 'string' && item.description.startsWith('[') && !item.description.startsWith('[hrana]'))).map((item) => ({ title: item.title, description: getVenueDescription(item), kind: item.subtype === 'accommodation' ? undefined : item.subtype, distance: item.distance_km == null ? undefined : `${item.distance_km} km` }))
+    : getCards(location.accommodations ?? location.stays);
+  const food = venueItems.length
+    ? venueItems.filter((item) => item.subtype === 'food' || (typeof item.description === 'string' && item.description.startsWith('[hrana]'))).map((item) => ({ title: item.title, description: getVenueDescription(item), kind: item.subtype === 'food' ? undefined : item.subtype, distance: item.distance_km == null ? undefined : `${item.distance_km} km` }))
+    : getCards(location.food ?? location.restaurants);
   const description = location.description || 'Detaljan opis ove destinacije još nije dodat.';
   const shortDescription = location.short_description || description;
   const difficultyClass = location.difficulty ? 'bg-orange-500 text-white' : 'bg-white/15 text-white';
 
-  const section = (id: string, title: string, icon: React.ReactNode, cards: ExploreCard[], tone: string, emptyText: string) => {
-    const visible = showAll[id] ? cards : cards.slice(0, 4);
-    return <section id={id} key={id} className="scroll-mt-32 px-5 py-7 md:px-8">
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <h2 className="flex items-center gap-2 text-lg font-semibold tracking-tight text-white">{icon}{title}</h2>
-        {cards.length > 4 && <button onClick={() => setShowAll({ ...showAll, [id]: !showAll[id] })} className="flex shrink-0 items-center gap-1 text-xs font-semibold text-emerald-400">{showAll[id] ? 'Manje' : 'Vidi sve'} <ChevronRight className="h-4 w-4" /></button>}
-      </div>
-      {cards.length ? <div className="-mx-5 flex snap-x snap-mandatory gap-3 overflow-x-auto px-5 pb-2 md:mx-0 md:px-0">{visible.map((card, index) => <article key={`${card.title}-${index}`} className="w-64 shrink-0 snap-start overflow-hidden rounded-2xl border border-white/[0.07] bg-[#1b201c]">
-        {card.image ? <img src={card.image} alt={card.title} className="h-36 w-full object-cover" /> : <div className={`flex h-28 items-center justify-center ${tone}`}><span className="rounded-full bg-black/10 p-3">{icon}</span></div>}
-        <div className="p-4"><h3 className="font-semibold text-zinc-100">{card.title}</h3>{card.subtitle && <p className="mt-1 text-sm text-zinc-400">{card.subtitle}</p>}<div className="mt-3 flex flex-wrap gap-2">{[card.kind, card.difficulty, card.price, card.distance].filter(Boolean).map((label) => <span key={label} className="rounded-full bg-white/[0.06] px-2.5 py-1 text-xs text-zinc-300">{label}</span>)}</div></div>
-      </article>)}</div> : <div className="rounded-2xl border border-dashed border-white/10 bg-[#171b18] px-4 py-5 text-sm text-zinc-500">{emptyText}</div>}
-    </section>;
-  };
+  const exploreTabs = [
+    { id: 'activities', label: 'Aktivnosti', icon: <Compass className="h-4 w-4" />, cards: activities },
+    { id: 'nature', label: 'Prirodene lepote', icon: <Trees className="h-4 w-4" />, cards: nature },
+    { id: 'stay', label: 'Smeštaj', icon: <BedDouble className="h-4 w-4" />, cards: stays },
+    { id: 'food', label: 'Hrana i piće', icon: <Utensils className="h-4 w-4" />, cards: food },
+  ];
+  const selectedExploreTab = exploreTabs.find((tab) => tab.id === activeExploreTab) ?? exploreTabs[0];
 
   return <main className="mx-auto min-h-screen max-w-3xl bg-[#101310] pb-28 text-zinc-100 shadow-2xl">
     <header className="absolute z-20 flex w-full max-w-3xl items-center justify-between px-5 py-4">
@@ -139,10 +140,10 @@ export default function LocationDetailPage({ params }: { params: Promise<{ slug:
     </section>
 
     <div className="grid grid-cols-2 gap-px border-y border-white/[0.06] bg-white/[0.06] md:grid-cols-4">
-      {[[CalendarDays, 'Najbolje vreme', location.best_time || 'Tokom cele godine'], [Mountain, 'Težina', location.difficulty || 'Za svakoga'], [Clock3, 'Trajanje', location.duration || 'Nije navedeno'], [Route, 'Nadmorska visina', location.elevation ? `${location.elevation} m` : 'Nije navedena']].map(([Icon, label, value]: any) => <div key={label} className="flex min-h-[76px] items-center gap-3 bg-[#151915] px-4 py-3"><Icon className="h-5 w-5 shrink-0 text-emerald-400" /><div className="min-w-0"><p className="text-[11px] text-zinc-500">{label}</p><p className="truncate text-sm font-medium text-zinc-200">{value}</p></div></div>)}
+      {[[CalendarDays, 'Najbolje vreme', location.best_time || 'Tokom cele godine'], [Mountain, 'Težina', location.difficulty || 'Za svakoga'], [Clock3, 'Trajanje', location.duration_text || location.duration || 'Nije navedeno'], [Route, 'Nadmorska visina', (location.elevation_m ?? location.elevation) ? `${location.elevation_m ?? location.elevation} m` : 'Nije navedena']].map(([Icon, label, value]: any) => <div key={label} className="flex min-h-[76px] items-center gap-3 bg-[#151915] px-4 py-3"><Icon className="h-5 w-5 shrink-0 text-emerald-400" /><div className="min-w-0"><p className="text-[11px] text-zinc-500">{label}</p><p className="truncate text-sm font-medium text-zinc-200">{value}</p></div></div>)}
     </div>
 
-    <nav aria-label="Sadržaj lokacije" className="sticky top-0 z-30 border-b border-white/[0.07] bg-[#101310]/95 px-5 backdrop-blur-xl md:px-8"><div className="flex gap-5 overflow-x-auto py-3 text-sm font-medium text-zinc-400">{[['overview','Pregled'],['activities','Aktivnosti'],['nature','Priroda'],['stay','Hrana i smeštaj'],['practical','Praktično']].map(([id, label]) => <a key={id} href={`#${id}`} aria-current={activeTab === id ? 'location' : undefined} onClick={() => setActiveTab(id)} className={`relative shrink-0 py-1 transition ${activeTab === id ? 'font-semibold text-emerald-300 after:absolute after:inset-x-0 after:-bottom-3 after:h-0.5 after:rounded-full after:bg-emerald-400' : 'hover:text-emerald-200'}`}>{label}</a>)}</div></nav>
+    <nav aria-label="Sadržaj lokacije" className="sticky top-0 z-30 border-b border-white/[0.07] bg-[#101310]/95 px-5 backdrop-blur-xl md:px-8"><div className="flex gap-5 overflow-x-auto py-3 text-sm font-medium text-zinc-400">{[['overview','Pregled'],['explore','Istraži'],['practical','Praktično']].map(([id, label]) => <a key={id} href={`#${id}`} aria-current={activeTab === id ? 'location' : undefined} onClick={() => setActiveTab(id)} className={`relative shrink-0 py-1 transition ${activeTab === id ? 'font-semibold text-emerald-300 after:absolute after:inset-x-0 after:-bottom-3 after:h-0.5 after:rounded-full after:bg-emerald-400' : 'hover:text-emerald-200'}`}>{label}</a>)}</div></nav>
 
     <section id="overview" className="scroll-mt-32 px-5 py-7 md:px-8">
       <h2 className="mb-3 text-lg font-semibold text-white">O destinaciji</h2>
@@ -151,23 +152,31 @@ export default function LocationDetailPage({ params }: { params: Promise<{ slug:
       {expanded && description !== shortDescription && <p className="mt-4 whitespace-pre-wrap text-sm leading-6 text-zinc-400">{description}</p>}
     </section>
 
-    {section('activities', 'Aktivnosti', <Compass className="h-5 w-5 text-violet-300" />, activities, 'bg-violet-400/10 text-violet-300', 'Aktivnosti za ovu lokaciju još nisu dodate.')}
-    {section('nature', 'Priroda i znamenitosti', <Trees className="h-5 w-5 text-emerald-300" />, nature, 'bg-emerald-400/10 text-emerald-300', 'Znamenitosti u blizini još nisu dodate.')}
-    {section('stay', 'Hrana i smeštaj', <BedDouble className="h-5 w-5 text-sky-300" />, [...stays, ...food], 'bg-sky-400/10 text-sky-300', 'Preporuke za hranu i smeštaj još nisu dodate.')}
+    <section id="explore" className="scroll-mt-16 px-5 py-7 md:px-8">
+      <h2 className="mb-4 text-lg font-semibold text-white">Šta možeš da radiš i posetiš</h2>
+      <div role="tablist" aria-label="Kategorije lokacije" className="mb-5 flex gap-2 overflow-x-auto rounded-2xl border border-white/[0.07] bg-[#171b18] p-2">
+        {exploreTabs.map((tab) => <button key={tab.id} id={`tab-${tab.id}`} type="button" role="tab" aria-selected={activeExploreTab === tab.id} aria-controls="explore-panel" onClick={() => setActiveExploreTab(tab.id)} className={`inline-flex shrink-0 items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition ${activeExploreTab === tab.id ? 'bg-emerald-700 text-white shadow-lg shadow-emerald-950/40' : 'text-zinc-400 hover:bg-white/[0.05] hover:text-white'}`}>{tab.icon}{tab.label}<span className={`rounded-full px-2 py-0.5 text-xs ${activeExploreTab === tab.id ? 'bg-white/15 text-white' : 'bg-white/[0.06] text-zinc-400'}`}>{tab.cards.length}</span></button>)}
+      </div>
+      <div id="explore-panel" role="tabpanel" aria-labelledby={`tab-${selectedExploreTab.id}`} className="min-h-48">
+        <div className="mb-4 flex items-center gap-2 text-sm font-medium text-zinc-400">{selectedExploreTab.icon}<span>{selectedExploreTab.label}</span></div>
+        {selectedExploreTab.cards.length ? <div className="divide-y divide-white/[0.08]">{selectedExploreTab.cards.map((card, index) => <article key={`${card.title}-${index}`} className="py-6 first:pt-1 last:pb-1">
+          {card.image && <img src={card.image} alt={card.title} className="mb-5 max-h-72 w-full rounded-2xl object-cover" />}
+          <h3 className="text-xl font-semibold tracking-tight text-white">{card.title}</h3>
+          {card.description && <p className="mt-3 whitespace-pre-wrap text-[15px] leading-7 text-zinc-300">{card.description}</p>}
+          {!card.description && card.subtitle && <p className="mt-3 whitespace-pre-wrap text-[15px] leading-7 text-zinc-300">{card.subtitle}</p>}
+          <div className="mt-4 flex flex-wrap gap-x-4 gap-y-2 text-xs font-medium text-emerald-300">{[card.kind, card.season, card.difficulty, card.price, card.distance].filter(Boolean).map((label) => <span key={label}>{label}</span>)}</div>
+        </article>)}</div> : <div className="py-8 text-sm text-zinc-500">Ova kategorija još nema unetih stavki.</div>}
+      </div>
+    </section>
 
     <section id="practical" className="scroll-mt-32 px-5 py-7 md:px-8">
       <h2 className="mb-4 text-lg font-semibold text-white">Praktične informacije</h2>
-      {location.warning && <div className="mb-4 flex gap-3 rounded-2xl border border-orange-400/20 bg-orange-400/10 p-4 text-orange-100"><ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-orange-400" /><div><p className="text-sm font-semibold">Važno za bezbednost</p><p className="mt-1 text-sm leading-5 text-orange-100/75">{location.warning}</p></div></div>}
+      {(Array.isArray(location.warnings) ? location.warnings : location.warning ? [location.warning] : []).map((warning: string, index: number) => <div key={`${warning}-${index}`} className="mb-4 flex gap-3 rounded-2xl border border-orange-400/20 bg-orange-400/10 p-4 text-orange-100"><ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-orange-400" /><div><p className="text-sm font-semibold">Važno za bezbednost</p><p className="mt-1 text-sm leading-5 text-orange-100/75">{warning}</p></div></div>)}
       <div className="mb-5 flex flex-wrap gap-2">{[[Baby,'Deca',location.child_friendly], [PawPrint,'Ljubimci',location.pet_allowed], [ParkingCircle,'Parking',location.parking_available]].map(([Icon, label, yes]: any) => <span key={label} className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs ${yes ? 'border-sky-400/20 bg-sky-400/10 text-sky-200' : 'border-white/[0.06] bg-white/[0.03] text-zinc-600'}`}><Icon className="h-3.5 w-3.5" />{label}{yes && <Check className="h-3 w-3" />}</span>)}</div>
-      <div className="mb-3 flex items-center justify-between"><h3 className="font-medium text-zinc-200">Mapa</h3><div className="flex gap-1 rounded-full bg-white/[0.05] p-1">{['Sve','Aktivnosti','Smeštaj'].map((filter) => <button key={filter} onClick={() => setMapFilter(filter)} className={`rounded-full px-3 py-1 text-xs ${filter === mapFilter ? 'bg-emerald-700 text-white' : 'text-zinc-400'}`}>{filter}</button>)}</div></div>
-      <div className="overflow-hidden rounded-2xl border border-white/[0.07] bg-[#1b201c]">{hasMap ? <iframe title={`Mapa lokacije ${location.title}`} src={mapSrc} className="h-64 w-full border-0 grayscale-[0.25]" loading="lazy" referrerPolicy="no-referrer-when-downgrade" /> : <div className="flex h-40 items-center justify-center px-6 text-center text-sm text-zinc-500">Mapa će biti dostupna kada budu pronađene koordinate.</div>}</div>
-      <p className="mt-2 flex items-center gap-1.5 text-xs text-zinc-500"><Utensils className="h-3.5 w-3.5" />{mapFilter === 'Sve' ? 'Prikaz lokacije' : `Filter: ${mapFilter} · dodatni pinovi će se prikazati kada budu dostupni`}</p>
-      <a href={mapLink} target="_blank" rel="noreferrer" className="mt-3 inline-flex items-center gap-2 text-sm font-semibold text-emerald-400">Otvori navigaciju <Navigation className="h-4 w-4" /></a>
     </section>
 
     <div className="fixed inset-x-0 bottom-0 z-40 mx-auto flex max-w-3xl gap-3 border-t border-white/[0.08] bg-[#151915]/95 px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-xl md:px-8">
-      <button onClick={toggleSaved} className={`flex flex-1 items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-semibold ${saved ? 'border-emerald-500 bg-emerald-950 text-emerald-300' : 'border-white/10 bg-white/[0.04] text-zinc-100'}`}><Heart className={`h-4 w-4 ${saved ? 'fill-current' : ''}`} />{saved ? 'Sačuvano' : 'Sačuvaj'}</button>
-      <a href={mapLink} target="_blank" rel="noreferrer" className="flex flex-[1.4] items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 py-3 text-sm font-semibold text-white hover:bg-emerald-600"><Plus className="h-4 w-4" />Navigacija</a>
+      <button onClick={toggleSaved} className={`flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-semibold ${saved ? 'border-emerald-500 bg-emerald-950 text-emerald-300' : 'border-white/10 bg-white/[0.04] text-zinc-100'}`}><Heart className={`h-4 w-4 ${saved ? 'fill-current' : ''}`} />{saved ? 'Sačuvano' : 'Sačuvaj'}</button>
     </div>
   </main>;
 }
