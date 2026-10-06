@@ -88,7 +88,7 @@ export default function LocationDetailPage({ params }: { params: Promise<{ slug:
     load();
   }, [slug]);
 
-  if (loading) return <main className="mx-auto flex min-h-screen max-w-3xl items-center justify-center bg-[#101310] text-sm text-zinc-400">Učitavanje destinacije…</main>;
+  if (loading) return null;
   if (!location) return <main className="mx-auto min-h-screen max-w-3xl bg-[#101310] px-6 py-16 text-center text-zinc-300"><p>Ova lokacija nije pronađena.</p><Link href="/" className="mt-5 inline-block rounded-full bg-emerald-700 px-5 py-3 text-sm font-semibold text-white">Nazad na destinacije</Link></main>;
 
   const images = [...new Set([location.cover_image, ...(Array.isArray(location.images) ? location.images : [])].filter((image): image is string => typeof image === 'string' && !!image))].slice(0, 6);
