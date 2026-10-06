@@ -20,6 +20,13 @@ type LocationFormData = {
   longitude: string;
   best_time: string;
   difficulty: string;
+  duration: string;
+  elevation: string;
+  warning: string;
+  activitiesText: string;
+  attractionsText: string;
+  accommodationsText: string;
+  foodText: string;
   child_friendly: boolean;
   parking_available: boolean;
   pet_allowed: boolean;
@@ -29,6 +36,13 @@ type LocationRow = LocationFormData & {
   id: string;
   cover_image: string | null;
   images: string[] | null;
+  duration?: string | null;
+  elevation?: number | null;
+  warning?: string | null;
+  activities?: unknown;
+  attractions?: unknown;
+  accommodations?: unknown;
+  food?: unknown;
 };
 
 const emptyFormData: LocationFormData = {
@@ -43,6 +57,13 @@ const emptyFormData: LocationFormData = {
   longitude: '',
   best_time: '',
   difficulty: 'Lako',
+  duration: '',
+  elevation: '',
+  warning: '',
+  activitiesText: '',
+  attractionsText: '',
+  accommodationsText: '',
+  foodText: '',
   child_friendly: true,
   parking_available: false,
   pet_allowed: false,
@@ -106,6 +127,12 @@ export default function EditLocationPage({ params }: { params: Promise<{ slug: s
       setLocationId(data.id);
       setExistingCoverImage(data.cover_image || '');
       setExistingGalleryImages(data.images || []);
+      const itemLines = (value: unknown, type: 'activity' | 'attraction' | 'stay' | 'food') => Array.isArray(value) ? value.map((item) => {
+        if (typeof item?.title !== 'string') return '';
+        if (type === 'activity') return [item.title, item.subtitle, item.difficulty].filter(Boolean).join(' | ');
+        if (type === 'attraction') return [item.title, item.image].filter(Boolean).join(' | ');
+        return [item.title, item.kind, item.price, item.distance].filter(Boolean).join(' | ');
+      }).filter(Boolean).join('\n') : '';
       setFormData({
         title: data.title || '',
         slug: data.slug || '',
@@ -118,6 +145,13 @@ export default function EditLocationPage({ params }: { params: Promise<{ slug: s
         longitude: data.longitude == null ? '' : String(data.longitude),
         best_time: data.best_time || '',
         difficulty: data.difficulty || 'Lako',
+        duration: data.duration || '',
+        elevation: data.elevation == null ? '' : String(data.elevation),
+        warning: data.warning || '',
+        activitiesText: itemLines(data.activities, 'activity'),
+        attractionsText: itemLines(data.attractions, 'attraction'),
+        accommodationsText: itemLines(data.accommodations, 'stay'),
+        foodText: itemLines(data.food, 'food'),
         child_friendly: Boolean(data.child_friendly),
         parking_available: Boolean(data.parking_available),
         pet_allowed: Boolean(data.pet_allowed),
@@ -214,12 +248,20 @@ export default function EditLocationPage({ params }: { params: Promise<{ slug: s
         }
       }
 
+      const { activitiesText, attractionsText, accommodationsText, foodText, ...locationFields } = formData;
       const payload = {
-        ...formData,
+        ...locationFields,
         category_id: finalCategory,
         difficulty: finalCategory === 'planina' ? formData.difficulty : null,
         latitude: formData.latitude ? Number(formData.latitude) : null,
         longitude: formData.longitude ? Number(formData.longitude) : null,
+        duration: formData.duration || null,
+        elevation: formData.elevation ? Number(formData.elevation) : null,
+        warning: formData.warning || null,
+        activities: activitiesText.split('\n').map((line) => line.split('|').map((part) => part.trim())).filter(([title]) => Boolean(title)).map(([title, subtitle, difficulty]) => ({ title, subtitle: subtitle || undefined, difficulty: difficulty || undefined })),
+        attractions: attractionsText.split('\n').map((line) => line.split('|').map((part) => part.trim())).filter(([title]) => Boolean(title)).map(([title, image]) => ({ title, image: image || undefined })),
+        accommodations: accommodationsText.split('\n').map((line) => line.split('|').map((part) => part.trim())).filter(([title]) => Boolean(title)).map(([title, kind, price, distance]) => ({ title, kind: kind || undefined, price: price || undefined, distance: distance || undefined })),
+        food: foodText.split('\n').map((line) => line.split('|').map((part) => part.trim())).filter(([title]) => Boolean(title)).map(([title, kind, price, distance]) => ({ title, kind: kind || undefined, price: price || undefined, distance: distance || undefined })),
         cover_image: coverImageUrl,
         images: [...existingGalleryImages, ...newGalleryUrls],
       };
@@ -416,6 +458,10 @@ export default function EditLocationPage({ params }: { params: Promise<{ slug: s
                 className="w-full px-4 py-3 border border-gray-200 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-900 dark:text-white text-sm"
               />
             </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div><label className="mb-1 block text-xs font-semibold text-gray-600 dark:text-zinc-400">Trajanje</label><input value={formData.duration} onChange={(e) => setFormData({ ...formData, duration: e.target.value })} placeholder="npr. 3–4 sata" className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm dark:border-zinc-800 dark:bg-zinc-900 dark:text-white" /></div>
+              <div><label className="mb-1 block text-xs font-semibold text-gray-600 dark:text-zinc-400">Nadmorska visina (m)</label><input type="number" min="0" value={formData.elevation} onChange={(e) => setFormData({ ...formData, elevation: e.target.value })} placeholder="npr. 1800" className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm dark:border-zinc-800 dark:bg-zinc-900 dark:text-white" /></div>
+            </div>
             <div>
               <label className="block text-xs font-semibold text-gray-600 dark:text-zinc-400 mb-1">Kratak opis</label>
               <input
@@ -434,6 +480,17 @@ export default function EditLocationPage({ params }: { params: Promise<{ slug: s
                 className="w-full px-4 py-3 border border-gray-200 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-900 dark:text-white text-sm resize-none"
               />
             </div>
+          </div>
+
+          <div className="space-y-4 rounded-2xl border border-gray-100 bg-gray-50 p-5 dark:border-zinc-900 dark:bg-zinc-900/50">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-[#006D44]">Aktivnosti i preporuke</h3>
+            <p className="text-xs text-gray-500 dark:text-zinc-400">Jedna stavka po redu, vrednosti razdvojene znakom |. Aktivnost: naziv | sezona | težina. Znamenitost: naziv | URL fotografije. Smeštaj/hrana: naziv | tip | cena | udaljenost.</p>
+            {([["activitiesText", "Aktivnosti", "Planinarenje | Leto–jesen | Srednje"], ["attractionsText", "Priroda i znamenitosti", "Jezero Bâlea | https://…"], ["accommodationsText", "Smeštaj", "Planinska koliba | Koliba | 40–80 € | 2 km"], ["foodText", "Hrana", "Lokalni restoran | Restoran | 10–20 € | 500 m"]] as const).map(([field, label, placeholder]) => <div key={field}><label className="mb-1 block text-xs font-semibold text-gray-600 dark:text-zinc-400">{label}</label><textarea rows={2} value={formData[field]} onChange={(e) => setFormData({ ...formData, [field]: e.target.value })} placeholder={placeholder} className="w-full resize-y rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm dark:border-zinc-800 dark:bg-zinc-900 dark:text-white" /></div>)}
+          </div>
+
+          <div className="rounded-2xl border border-orange-200 bg-orange-50 p-5 dark:border-orange-900/50 dark:bg-orange-950/20">
+            <label className="mb-1 block text-xs font-semibold text-orange-800 dark:text-orange-300">Bezbednosno upozorenje</label>
+            <textarea rows={2} value={formData.warning} onChange={(e) => setFormData({ ...formData, warning: e.target.value })} placeholder="npr. U okolini se mogu sresti medvedi; držite se obeleženih staza." className="w-full resize-y rounded-xl border border-orange-200 bg-white px-4 py-3 text-sm dark:border-orange-900 dark:bg-zinc-900 dark:text-white" />
           </div>
 
           <div className="space-y-4 bg-gray-50 dark:bg-zinc-900/50 p-5 rounded-2xl border border-gray-100 dark:border-zinc-900">

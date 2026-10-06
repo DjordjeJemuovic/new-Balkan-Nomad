@@ -1,344 +1,173 @@
 'use client';
 
-import { useState, useEffect, use } from 'react';
+import { use, useEffect, useState } from 'react';
 import { supabase } from '../../../src/lib/supabase';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, MapPin, Calendar, Compass, ShieldCheck, Info, Sparkles, Pencil, Home, Search, PlusCircle, Heart, User } from 'lucide-react';
+import { ArrowLeft, CalendarDays, Clock3, Compass, Heart, MapPin, Mountain, Pencil, Route, ShieldAlert, ParkingCircle, PawPrint, Baby, Utensils, BedDouble, Trees, ChevronRight, Navigation, Plus, Check } from 'lucide-react';
+
+type ExploreCard = { title: string; subtitle?: string; image?: string; kind?: string; price?: string; distance?: string; difficulty?: string };
+
+function getCards(value: unknown): ExploreCard[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is ExploreCard => !!item && typeof item === 'object' && typeof (item as ExploreCard).title === 'string');
+}
 
 export default function LocationDetailPage({ params }: { params: Promise<{ slug: string }> }) {
-  // Otpakivanje params-a u Next.js 15+ okruženju
-  const resolvedParams = use(params);
+  const { slug } = use(params);
   const router = useRouter();
-  
   const [location, setLocation] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [activeImage, setActiveImage] = useState<string>('');
-  const [role, setRole] = useState<string>('user');
+  const [role, setRole] = useState('user');
+  const [saved, setSaved] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const [showAll, setShowAll] = useState<Record<string, boolean>>({});
+  const [mapFilter, setMapFilter] = useState('Sve');
+  const [activeTab, setActiveTab] = useState('overview');
   const [geocodedPosition, setGeocodedPosition] = useState<{ lat: number; lon: number } | null>(null);
 
   useEffect(() => {
-    async function checkUserRole() {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user) return;
+    setSaved(window.localStorage.getItem(`balkan-nomad:saved:${slug}`) === 'true');
+  }, [slug]);
 
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', session.user.id)
-        .single();
+  useEffect(() => {
+    const sections = ['overview', 'activities', 'nature', 'stay', 'practical']
+      .map((id) => document.getElementById(id))
+      .filter((section): section is HTMLElement => section !== null);
+    const observer = new IntersectionObserver((entries) => {
+      const visible = entries
+        .filter((entry) => entry.isIntersecting)
+        .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+      if (visible) setActiveTab(visible.target.id);
+    }, { rootMargin: '-150px 0px -58% 0px', threshold: [0, 0.15, 0.4] });
+    sections.forEach((section) => observer.observe(section));
+    return () => observer.disconnect();
+  }, [location]);
 
-      if (profile?.role) setRole(profile.role);
-    }
+  const toggleSaved = () => {
+    setSaved((current) => {
+      const next = !current;
+      window.localStorage.setItem(`balkan-nomad:saved:${slug}`, String(next));
+      return next;
+    });
+  };
 
-    async function fetchLocationDetails() {
-      setLoading(true);
-      const { data, error } = await supabase
-        .from('locations')
-        .select('*')
-        .eq('slug', resolvedParams.slug)
-        .single();
-
-      if (!error && data) {
-        setLocation(data);
-        setActiveImage(data.cover_image); // Glavna slika je podrazumevano prva velika slika
-      } else {
-        console.error("Lokacija nije pronađena ili je došlo do greške:", error);
+  useEffect(() => {
+    async function load() {
+      const [{ data: { session } }, { data, error }] = await Promise.all([
+        supabase.auth.getSession(),
+        supabase.from('locations').select('*').eq('slug', slug).single(),
+      ]);
+      if (session?.user) {
+        const { data: profile } = await supabase.from('profiles').select('role').eq('id', session.user.id).single();
+        if (profile?.role) setRole(profile.role);
       }
+      if (!error && data) setLocation(data);
       setLoading(false);
     }
-
-    checkUserRole();
-    fetchLocationDetails();
-  }, [resolvedParams.slug]);
+    load();
+  }, [slug]);
 
   useEffect(() => {
     if (!location) return;
-
-    const latitude = Number(location.latitude ?? location.lat);
-    const longitude = Number(location.longitude ?? location.lng ?? location.lon);
-    if (Number.isFinite(latitude) && Number.isFinite(longitude)) return;
-
-    const searchQuery = [location.title, location.region, location.country]
-      .filter(Boolean)
-      .join(', ');
-
-    if (!searchQuery) return;
-
+    const lat = Number(location.latitude ?? location.lat);
+    const lon = Number(location.longitude ?? location.lng ?? location.lon);
+    if (Number.isFinite(lat) && Number.isFinite(lon)) return;
+    const query = [location.title, location.region, location.country].filter(Boolean).join(', ');
     const controller = new AbortController();
-
-    async function geocodeLocation() {
-      try {
-        const response = await fetch(
-          `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(searchQuery)}`,
-          { signal: controller.signal }
-        );
-
-        if (!response.ok) return;
-
-        const results = await response.json();
-        const firstResult = results?.[0];
-        const nextLat = Number(firstResult?.lat);
-        const nextLon = Number(firstResult?.lon);
-
-        if (Number.isFinite(nextLat) && Number.isFinite(nextLon)) {
-          setGeocodedPosition({ lat: nextLat, lon: nextLon });
-        }
-      } catch (error) {
-        if (!controller.signal.aborted) {
-          console.error('Geocoding greška:', error);
-        }
-      }
-    }
-
-    geocodeLocation();
-
+    fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(query)}`, { signal: controller.signal })
+      .then((response) => response.ok ? response.json() : [])
+      .then((results) => {
+        const nextLat = Number(results?.[0]?.lat), nextLon = Number(results?.[0]?.lon);
+        if (Number.isFinite(nextLat) && Number.isFinite(nextLon)) setGeocodedPosition({ lat: nextLat, lon: nextLon });
+      }).catch(() => undefined);
     return () => controller.abort();
   }, [location]);
 
-  if (loading) {
-    return (
-      <div className="max-w-xl mx-auto min-h-screen bg-white dark:bg-zinc-950 flex items-center justify-center">
-        <p className="text-sm font-medium text-gray-400 animate-pulse">Učitavanje detalja o destinaciji...</p>
+  if (loading) return <main className="mx-auto flex min-h-screen max-w-3xl items-center justify-center bg-[#101310] text-sm text-zinc-400">Učitavanje destinacije…</main>;
+  if (!location) return <main className="mx-auto min-h-screen max-w-3xl bg-[#101310] px-6 py-16 text-center text-zinc-300"><p>Ova lokacija nije pronađena.</p><Link href="/" className="mt-5 inline-block rounded-full bg-emerald-700 px-5 py-3 text-sm font-semibold text-white">Nazad na destinacije</Link></main>;
+
+  const images = [...new Set([location.cover_image, ...(Array.isArray(location.images) ? location.images : [])].filter((image): image is string => typeof image === 'string' && !!image))].slice(0, 6);
+  const lat = Number(location.latitude ?? location.lat), lon = Number(location.longitude ?? location.lng ?? location.lon);
+  const mapLat = Number.isFinite(lat) ? lat : geocodedPosition?.lat;
+  const mapLon = Number.isFinite(lon) ? lon : geocodedPosition?.lon;
+  const hasMap = typeof mapLat === 'number' && typeof mapLon === 'number';
+  const mapSrc = hasMap ? `https://www.openstreetmap.org/export/embed.html?bbox=${mapLon! - 0.03}%2C${mapLat! - 0.02}%2C${mapLon! + 0.03}%2C${mapLat! + 0.02}&layer=mapnik&marker=${mapLat}%2C${mapLon}` : '';
+  const mapLink = hasMap ? `https://www.openstreetmap.org/?mlat=${mapLat}&mlon=${mapLon}#map=14/${mapLat}/${mapLon}` : `https://www.openstreetmap.org/search?query=${encodeURIComponent([location.title, location.region, location.country].filter(Boolean).join(', '))}`;
+  const activities = getCards(location.activities);
+  const nature = getCards(location.attractions ?? location.sights);
+  const stays = getCards(location.accommodations ?? location.stays);
+  const food = getCards(location.food ?? location.restaurants);
+  const description = location.description || 'Detaljan opis ove destinacije još nije dodat.';
+  const shortDescription = location.short_description || description;
+  const difficultyClass = location.difficulty ? 'bg-orange-500 text-white' : 'bg-white/15 text-white';
+
+  const section = (id: string, title: string, icon: React.ReactNode, cards: ExploreCard[], tone: string, emptyText: string) => {
+    const visible = showAll[id] ? cards : cards.slice(0, 4);
+    return <section id={id} key={id} className="scroll-mt-32 px-5 py-7 md:px-8">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <h2 className="flex items-center gap-2 text-lg font-semibold tracking-tight text-white">{icon}{title}</h2>
+        {cards.length > 4 && <button onClick={() => setShowAll({ ...showAll, [id]: !showAll[id] })} className="flex shrink-0 items-center gap-1 text-xs font-semibold text-emerald-400">{showAll[id] ? 'Manje' : 'Vidi sve'} <ChevronRight className="h-4 w-4" /></button>}
       </div>
-    );
-  }
+      {cards.length ? <div className="-mx-5 flex snap-x snap-mandatory gap-3 overflow-x-auto px-5 pb-2 md:mx-0 md:px-0">{visible.map((card, index) => <article key={`${card.title}-${index}`} className="w-64 shrink-0 snap-start overflow-hidden rounded-2xl border border-white/[0.07] bg-[#1b201c]">
+        {card.image ? <img src={card.image} alt={card.title} className="h-36 w-full object-cover" /> : <div className={`flex h-28 items-center justify-center ${tone}`}><span className="rounded-full bg-black/10 p-3">{icon}</span></div>}
+        <div className="p-4"><h3 className="font-semibold text-zinc-100">{card.title}</h3>{card.subtitle && <p className="mt-1 text-sm text-zinc-400">{card.subtitle}</p>}<div className="mt-3 flex flex-wrap gap-2">{[card.kind, card.difficulty, card.price, card.distance].filter(Boolean).map((label) => <span key={label} className="rounded-full bg-white/[0.06] px-2.5 py-1 text-xs text-zinc-300">{label}</span>)}</div></div>
+      </article>)}</div> : <div className="rounded-2xl border border-dashed border-white/10 bg-[#171b18] px-4 py-5 text-sm text-zinc-500">{emptyText}</div>}
+    </section>;
+  };
 
-  if (!location) {
-    return (
-      <div className="max-w-xl mx-auto min-h-screen bg-white dark:bg-zinc-950 px-6 py-12 text-center space-y-4">
-        <p className="text-gray-500">Ups! Tražena lokacija ne postoji u nomadskoj bazi.</p>
-        <Link href="/" className="inline-block px-4 py-2 bg-[#006D44] text-white text-xs font-bold rounded-xl">
-          Vrati se na početnu
-        </Link>
+  return <main className="mx-auto min-h-screen max-w-3xl bg-[#101310] pb-28 text-zinc-100 shadow-2xl">
+    <header className="absolute z-20 flex w-full max-w-3xl items-center justify-between px-5 py-4">
+      <button onClick={() => router.back()} aria-label="Nazad" className="rounded-full border border-white/15 bg-black/35 p-2.5 text-white backdrop-blur-md"><ArrowLeft className="h-5 w-5" /></button>
+      <div className="flex gap-2">
+        <button onClick={toggleSaved} aria-label={saved ? 'Ukloni iz sačuvanih' : 'Sačuvaj lokaciju'} className={`rounded-full border border-white/15 p-2.5 backdrop-blur-md ${saved ? 'bg-rose-500 text-white' : 'bg-black/35 text-white'}`}><Heart className={`h-5 w-5 ${saved ? 'fill-current' : ''}`} /></button>
+        {role === 'admin' && <Link href={`/admin/locations/${location.slug}/edit`} aria-label="Izmeni lokaciju" className="rounded-full border border-white/15 bg-black/35 p-2.5 text-white backdrop-blur-md"><Pencil className="h-5 w-5" /></Link>}
       </div>
-    );
-  }
+    </header>
 
-  // Spajanje cover_image i niza iz galerije (images) u jednu listu svih slika za pregled
-  const allImages = [location.cover_image, ...(location.images || [])].filter(Boolean);
-  const storedLatitude = Number(location.latitude ?? location.lat);
-  const storedLongitude = Number(location.longitude ?? location.lng ?? location.lon);
-  const hasStoredCoordinates = Number.isFinite(storedLatitude) && Number.isFinite(storedLongitude);
-  const mapLatitude = hasStoredCoordinates ? storedLatitude : geocodedPosition?.lat;
-  const mapLongitude = hasStoredCoordinates ? storedLongitude : geocodedPosition?.lon;
-  const hasMapPosition = typeof mapLatitude === 'number' && typeof mapLongitude === 'number';
-  const mapBoundingBox = hasMapPosition
-    ? `${mapLongitude - 0.03}%2C${mapLatitude - 0.02}%2C${mapLongitude + 0.03}%2C${mapLatitude + 0.02}`
-    : '';
-  const mapEmbedUrl = hasMapPosition
-    ? `https://www.openstreetmap.org/export/embed.html?bbox=${mapBoundingBox}&layer=mapnik&marker=${mapLatitude}%2C${mapLongitude}`
-    : '';
-  const mapLinkUrl = hasMapPosition
-    ? `https://www.openstreetmap.org/?mlat=${mapLatitude}&mlon=${mapLongitude}#map=14/${mapLatitude}/${mapLongitude}`
-    : `https://www.openstreetmap.org/search?query=${encodeURIComponent([location.title, location.region, location.country].filter(Boolean).join(', '))}`;
-
-  return (
-    <div className="max-w-xl mx-auto min-h-screen bg-white dark:bg-zinc-950 pb-24 shadow-sm transition-colors duration-200">
-      
-      {/* TOP NAVIGATION BAR */}
-      <div className="sticky top-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-md px-6 py-4 border-b border-gray-50 dark:border-zinc-900 z-50 flex items-center gap-4">
-        <button onClick={() => router.back()} className="p-1 hover:bg-gray-100 dark:hover:bg-zinc-900 rounded-full transition">
-          <ArrowLeft className="w-5 h-5 text-zinc-800 dark:text-white" />
-        </button>
-        <span className="flex-1 text-sm font-black text-zinc-900 dark:text-white tracking-tight uppercase line-clamp-1">
-          {location.title}
-        </span>
-        {role === 'admin' && (
-          <Link
-            href={`/admin/locations/${location.slug}/edit`}
-            className="p-2 bg-emerald-50 dark:bg-emerald-950/40 text-[#006D44] dark:text-emerald-400 rounded-xl border border-emerald-100 dark:border-emerald-900/60 hover:bg-emerald-100/70 transition"
-            aria-label={`Izmeni lokaciju ${location.title}`}
-          >
-            <Pencil className="w-4 h-4" />
-          </Link>
-        )}
+    <section className="relative">
+      {images.length ? <div className="flex snap-x snap-mandatory overflow-x-auto">
+        {images.map((image, index) => <div key={image} className="relative h-[340px] w-full shrink-0 snap-center md:h-[430px]"><img src={image} alt={`${location.title}, fotografija ${index + 1}`} className="h-full w-full object-cover" /><div className="absolute inset-0 bg-gradient-to-t from-[#101310] via-black/10 to-black/25" /></div>)}
+      </div> : <div className="h-[340px] bg-gradient-to-br from-emerald-950 via-zinc-800 to-zinc-950 md:h-[430px]" />}
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-[#101310] to-transparent" />
+      {images.length > 1 && <span className="absolute bottom-28 right-5 rounded-full bg-black/45 px-3 py-1 text-xs text-white backdrop-blur">Prevuci fotografije · {images.length}</span>}
+      <div className="absolute inset-x-0 bottom-0 px-5 pb-5 md:px-8">
+        <div className="mb-2 flex items-center gap-1.5 text-sm font-medium text-emerald-300"><MapPin className="h-4 w-4" />{[location.region, location.country].filter(Boolean).join(', ')}</div>
+        <h1 className="text-3xl font-bold tracking-tight text-white md:text-4xl">{location.title}</h1>
+        <div className="mt-3 flex flex-wrap gap-2"><span className={`rounded-full px-3 py-1.5 text-xs font-semibold ${difficultyClass}`}>{location.difficulty || 'Destinacija'}</span><span className="rounded-full bg-white/10 px-3 py-1.5 text-xs font-medium text-white">{location.category_id}</span></div>
       </div>
+    </section>
 
-      {/* VELIKI PREGLED SLIKE (VELIKA FOTOGRAFIJA) */}
-      <div className="px-4 mt-4">
-        <div className="relative h-64 md:h-72 w-full bg-zinc-100 dark:bg-zinc-900 rounded-3xl overflow-hidden shadow-sm">
-          <img 
-            src={activeImage || "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=800&q=80"} 
-            alt={location.title} 
-            className="w-full h-full object-cover transition-all duration-300"
-          />
-          {location.difficulty && (
-            <span className={`absolute top-4 right-4 text-[10px] font-bold uppercase px-3 py-1.5 rounded-full shadow-md text-white ${
-              location.difficulty === 'Lako' ? 'bg-emerald-600' : location.difficulty === 'Srednje' ? 'bg-amber-600' : 'bg-red-600'
-            }`}>
-              Staza: {location.difficulty}
-            </span>
-          )}
-        </div>
-
-        {/* 📸 MINI GALERIJA (Horizontalni slider za odabir slika) */}
-        {allImages.length > 1 && (
-          <div className="flex gap-2.5 mt-3 overflow-x-auto pb-2 scrollbar-none px-1">
-            {allImages.map((imgUrl, idx) => (
-              <button
-                key={idx}
-                onClick={() => setActiveImage(imgUrl)}
-                className={`relative h-16 w-20 rounded-xl overflow-hidden flex-shrink-0 border-2 transition ${
-                  activeImage === imgUrl ? 'border-[#006D44] scale-95 shadow-sm' : 'border-transparent opacity-70 hover:opacity-100'
-                }`}
-              >
-                <img src={imgUrl} alt={`Galerija ${idx}`} className="w-full h-full object-cover" />
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* SADRŽAJ I PODACI O LOKACIJI */}
-      <div className="px-6 mt-6 space-y-6">
-        
-        {/* NASLOV I LOKACIJA */}
-        <div className="space-y-2">
-          <div className="flex items-center gap-1 text-xs text-[#006D44] dark:text-emerald-400 font-bold uppercase tracking-wider">
-            <MapPin className="w-3.5 h-3.5" />
-            <span>{location.region ? `${location.region}, ` : ''}{location.country}</span>
-          </div>
-          <h1 className="text-2xl font-black text-zinc-900 dark:text-white tracking-tight leading-tight">
-            {location.title}
-          </h1>
-          {location.short_description && (
-            <p className="text-sm text-gray-500 dark:text-zinc-400 leading-relaxed font-medium italic border-l-2 border-emerald-500 pl-3 py-0.5">
-              "{location.short_description}"
-            </p>
-          )}
-        </div>
-
-        {/* BRZE INFORMACIJE (IKONICE) */}
-        <div className="grid grid-cols-2 gap-3 bg-gray-50 dark:bg-zinc-900/40 p-4 rounded-2xl border border-gray-100 dark:border-zinc-900">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-white dark:bg-zinc-900 rounded-xl border border-gray-100 dark:border-zinc-800 shadow-sm">
-              <Calendar className="w-4 h-4 text-[#006D44]" />
-            </div>
-            <div>
-              <span className="block text-[10px] uppercase font-bold text-gray-400">Najbolje vreme</span>
-              <span className="text-xs font-semibold text-zinc-800 dark:text-zinc-200">{location.best_time || 'Tokom cele godine'}</span>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-white dark:bg-zinc-900 rounded-xl border border-gray-100 dark:border-zinc-800 shadow-sm">
-              <Compass className="w-4 h-4 text-[#006D44]" />
-            </div>
-            <div>
-              <span className="block text-[10px] uppercase font-bold text-gray-400">Tip / Kategorija</span>
-              <span className="text-xs font-bold text-zinc-800 dark:text-zinc-200 capitalize">#{location.category_id}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* DETALJAN OPIS RUTE / TEKST */}
-        <div className="space-y-2.5">
-          <h3 className="text-xs font-black text-zinc-800 dark:text-zinc-200 tracking-wider uppercase flex items-center gap-1.5">
-            <Info className="w-4 h-4 text-[#006D44]" /> Detaljan opis avanture
-          </h3>
-          <p className="text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed whitespace-pre-wrap font-medium">
-            {location.description || 'Za ovu lokaciju još uvek nije dodat detaljan tehnički opis rute. Možete istražiti osnovne parametre ili posetiti lokalitet uz standardne outdoor mere predostrožnosti.'}
-          </p>
-        </div>
-
-        {/* KARAKTERISTIKE DESTINACIJE (TAGOVI / BADGES) */}
-        <div className="pt-4 border-t border-gray-50 dark:border-zinc-900/60 space-y-3">
-          <h3 className="text-xs font-black text-zinc-800 dark:text-zinc-200 tracking-wider uppercase flex items-center gap-1.5">
-            <ShieldCheck className="w-4 h-4 text-[#006D44]" /> Sadržaji i Logistika
-          </h3>
-          
-          <div className="flex flex-wrap gap-2">
-            <div className={`text-xs font-semibold px-3 py-1.5 rounded-xl border transition ${
-              location.child_friendly 
-                ? 'bg-blue-50/60 dark:bg-blue-950/20 text-blue-600 dark:text-blue-400 border-blue-100/50 dark:border-blue-900/40' 
-                : 'bg-gray-50 dark:bg-zinc-900 text-gray-400 line-through border-transparent'
-            }`}>
-              👶 Prilagođeno deci
-            </div>
-            
-            <div className={`text-xs font-semibold px-3 py-1.5 rounded-xl border transition ${
-              location.pet_allowed 
-                ? 'bg-purple-50/60 dark:bg-purple-950/20 text-purple-600 dark:text-purple-400 border-purple-100/50 dark:border-purple-900/40' 
-                : 'bg-gray-50 dark:bg-zinc-900 text-gray-400 line-through border-transparent'
-            }`}>
-              🐾 Pet Friendly
-            </div>
-
-            <div className={`text-xs font-semibold px-3 py-1.5 rounded-xl border transition ${
-              location.parking_available 
-                ? 'bg-amber-50/60 dark:bg-amber-950/20 text-amber-600 dark:text-amber-400 border-amber-100/50 dark:border-amber-900/40' 
-                : 'bg-gray-50 dark:bg-zinc-900 text-gray-400 line-through border-transparent'
-            }`}>
-              🚗 Dostupan Parking
-            </div>
-          </div>
-        </div>
-
-        {/* MAPA LOKACIJE */}
-        <div className="pt-4 border-t border-gray-50 dark:border-zinc-900/60 space-y-3">
-          <h3 className="text-xs font-black text-zinc-800 dark:text-zinc-200 tracking-wider uppercase flex items-center gap-1.5">
-            <MapPin className="w-4 h-4 text-[#006D44]" /> Lokacija na mapi
-          </h3>
-          <div className="overflow-hidden rounded-2xl border border-gray-100 dark:border-zinc-900 bg-gray-50 dark:bg-zinc-900/40">
-            {hasMapPosition ? (
-              <iframe
-                title={`Mapa lokacije ${location.title}`}
-                src={mapEmbedUrl}
-                className="h-72 w-full border-0"
-                loading="lazy"
-                referrerPolicy="no-referrer-when-downgrade"
-              />
-            ) : (
-              <div className="h-40 flex items-center justify-center px-6 text-center">
-                <p className="text-xs font-medium text-gray-400">
-                  Mapa će se prikazati kada se dodaju GPS koordinate za ovu destinaciju.
-                </p>
-              </div>
-            )}
-          </div>
-          <div className="flex items-center justify-between gap-3">
-            <span className="text-[10px] font-medium text-gray-400">
-              {hasStoredCoordinates ? 'GPS koordinate iz baze' : 'Lokacija pronađena preko OpenStreetMap pretrage'}
-            </span>
-            <a
-              href={mapLinkUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="text-[10px] font-bold text-[#006D44] dark:text-emerald-400 uppercase"
-            >
-              Otvori veću mapu
-            </a>
-          </div>
-        </div>
-
-      </div>
-
-      {/* FIKSNI DONJI MENI */}
-      <div className="fixed bottom-0 left-0 right-0 max-w-xl mx-auto bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md border-t border-gray-100 dark:border-zinc-800 px-6 py-3 flex justify-between items-center z-50">
-        <Link href="/" className="flex flex-col items-center gap-1 text-[#006D44] dark:text-emerald-500">
-          <Home className="w-5 h-5" />
-          <span className="text-[10px] font-bold">Početna</span>
-        </Link>
-        <button className="flex flex-col items-center gap-1 text-gray-400">
-          <Search className="w-5 h-5" />
-          <span className="text-[10px] font-medium">Pretraga</span>
-        </button>
-        {role === 'admin' && (
-          <Link href="/admin/locations/new" className="flex flex-col items-center gap-1 text-emerald-600">
-            <PlusCircle className="w-5 h-5 text-[#006D44]" />
-            <span className="text-[10px] font-bold text-[#006D44]">Dodaj lokaciju</span>
-          </Link>
-        )}
-        <button className="flex flex-col items-center gap-1 text-gray-400">
-          <Heart className="w-5 h-5" />
-          <span className="text-[10px] font-medium">Omiljeno</span>
-        </button>
-        <button className="flex flex-col items-center gap-1 text-gray-400">
-          <User className="w-5 h-5" />
-          <span className="text-[10px] font-medium">Profil</span>
-        </button>
-      </div>
+    <div className="grid grid-cols-2 gap-px border-y border-white/[0.06] bg-white/[0.06] md:grid-cols-4">
+      {[[CalendarDays, 'Najbolje vreme', location.best_time || 'Tokom cele godine'], [Mountain, 'Težina', location.difficulty || 'Za svakoga'], [Clock3, 'Trajanje', location.duration || 'Nije navedeno'], [Route, 'Nadmorska visina', location.elevation ? `${location.elevation} m` : 'Nije navedena']].map(([Icon, label, value]: any) => <div key={label} className="flex min-h-[76px] items-center gap-3 bg-[#151915] px-4 py-3"><Icon className="h-5 w-5 shrink-0 text-emerald-400" /><div className="min-w-0"><p className="text-[11px] text-zinc-500">{label}</p><p className="truncate text-sm font-medium text-zinc-200">{value}</p></div></div>)}
     </div>
-  );
+
+    <nav aria-label="Sadržaj lokacije" className="sticky top-0 z-30 border-b border-white/[0.07] bg-[#101310]/95 px-5 backdrop-blur-xl md:px-8"><div className="flex gap-5 overflow-x-auto py-3 text-sm font-medium text-zinc-400">{[['overview','Pregled'],['activities','Aktivnosti'],['nature','Priroda'],['stay','Hrana i smeštaj'],['practical','Praktično']].map(([id, label]) => <a key={id} href={`#${id}`} aria-current={activeTab === id ? 'location' : undefined} onClick={() => setActiveTab(id)} className={`relative shrink-0 py-1 transition ${activeTab === id ? 'font-semibold text-emerald-300 after:absolute after:inset-x-0 after:-bottom-3 after:h-0.5 after:rounded-full after:bg-emerald-400' : 'hover:text-emerald-200'}`}>{label}</a>)}</div></nav>
+
+    <section id="overview" className="scroll-mt-32 px-5 py-7 md:px-8">
+      <h2 className="mb-3 text-lg font-semibold text-white">O destinaciji</h2>
+      <p className={`whitespace-pre-wrap text-sm leading-6 text-zinc-400 ${expanded ? '' : 'line-clamp-3'}`}>{shortDescription}</p>
+      {(description !== shortDescription || shortDescription.length > 160) && <button onClick={() => setExpanded(!expanded)} className="mt-2 text-sm font-semibold text-emerald-400">{expanded ? 'Prikaži manje' : 'Pročitaj više'}</button>}
+      {expanded && description !== shortDescription && <p className="mt-4 whitespace-pre-wrap text-sm leading-6 text-zinc-400">{description}</p>}
+    </section>
+
+    {section('activities', 'Aktivnosti', <Compass className="h-5 w-5 text-violet-300" />, activities, 'bg-violet-400/10 text-violet-300', 'Aktivnosti za ovu lokaciju još nisu dodate.')}
+    {section('nature', 'Priroda i znamenitosti', <Trees className="h-5 w-5 text-emerald-300" />, nature, 'bg-emerald-400/10 text-emerald-300', 'Znamenitosti u blizini još nisu dodate.')}
+    {section('stay', 'Hrana i smeštaj', <BedDouble className="h-5 w-5 text-sky-300" />, [...stays, ...food], 'bg-sky-400/10 text-sky-300', 'Preporuke za hranu i smeštaj još nisu dodate.')}
+
+    <section id="practical" className="scroll-mt-32 px-5 py-7 md:px-8">
+      <h2 className="mb-4 text-lg font-semibold text-white">Praktične informacije</h2>
+      {location.warning && <div className="mb-4 flex gap-3 rounded-2xl border border-orange-400/20 bg-orange-400/10 p-4 text-orange-100"><ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-orange-400" /><div><p className="text-sm font-semibold">Važno za bezbednost</p><p className="mt-1 text-sm leading-5 text-orange-100/75">{location.warning}</p></div></div>}
+      <div className="mb-5 flex flex-wrap gap-2">{[[Baby,'Deca',location.child_friendly], [PawPrint,'Ljubimci',location.pet_allowed], [ParkingCircle,'Parking',location.parking_available]].map(([Icon, label, yes]: any) => <span key={label} className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs ${yes ? 'border-sky-400/20 bg-sky-400/10 text-sky-200' : 'border-white/[0.06] bg-white/[0.03] text-zinc-600'}`}><Icon className="h-3.5 w-3.5" />{label}{yes && <Check className="h-3 w-3" />}</span>)}</div>
+      <div className="mb-3 flex items-center justify-between"><h3 className="font-medium text-zinc-200">Mapa</h3><div className="flex gap-1 rounded-full bg-white/[0.05] p-1">{['Sve','Aktivnosti','Smeštaj'].map((filter) => <button key={filter} onClick={() => setMapFilter(filter)} className={`rounded-full px-3 py-1 text-xs ${filter === mapFilter ? 'bg-emerald-700 text-white' : 'text-zinc-400'}`}>{filter}</button>)}</div></div>
+      <div className="overflow-hidden rounded-2xl border border-white/[0.07] bg-[#1b201c]">{hasMap ? <iframe title={`Mapa lokacije ${location.title}`} src={mapSrc} className="h-64 w-full border-0 grayscale-[0.25]" loading="lazy" referrerPolicy="no-referrer-when-downgrade" /> : <div className="flex h-40 items-center justify-center px-6 text-center text-sm text-zinc-500">Mapa će biti dostupna kada budu pronađene koordinate.</div>}</div>
+      <p className="mt-2 flex items-center gap-1.5 text-xs text-zinc-500"><Utensils className="h-3.5 w-3.5" />{mapFilter === 'Sve' ? 'Prikaz lokacije' : `Filter: ${mapFilter} · dodatni pinovi će se prikazati kada budu dostupni`}</p>
+      <a href={mapLink} target="_blank" rel="noreferrer" className="mt-3 inline-flex items-center gap-2 text-sm font-semibold text-emerald-400">Otvori navigaciju <Navigation className="h-4 w-4" /></a>
+    </section>
+
+    <div className="fixed inset-x-0 bottom-0 z-40 mx-auto flex max-w-3xl gap-3 border-t border-white/[0.08] bg-[#151915]/95 px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-xl md:px-8">
+      <button onClick={toggleSaved} className={`flex flex-1 items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-semibold ${saved ? 'border-emerald-500 bg-emerald-950 text-emerald-300' : 'border-white/10 bg-white/[0.04] text-zinc-100'}`}><Heart className={`h-4 w-4 ${saved ? 'fill-current' : ''}`} />{saved ? 'Sačuvano' : 'Sačuvaj'}</button>
+      <a href={mapLink} target="_blank" rel="noreferrer" className="flex flex-[1.4] items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 py-3 text-sm font-semibold text-white hover:bg-emerald-600"><Plus className="h-4 w-4" />Navigacija</a>
+    </div>
+  </main>;
 }
