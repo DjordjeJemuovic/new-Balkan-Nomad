@@ -1,12 +1,13 @@
 'use client';
 
-import { use, useEffect, useState } from 'react';
+import { use, useEffect, useState, type ReactNode } from 'react';
 import { supabase } from '../../../src/lib/supabase';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, CalendarDays, Clock3, Compass, Heart, MapPin, Mountain, Pencil, Route, ShieldAlert, ParkingCircle, PawPrint, Baby, Utensils, BedDouble, Trees, Plus, Check } from 'lucide-react';
 
 type ExploreCard = { title: string; description?: string; subtitle?: string; image?: string; kind?: string; price?: string; distance?: string; difficulty?: string; season?: string };
+type ExploreTab = { id: string; label: string; icon: ReactNode; cards: ExploreCard[] };
 
 function getCards(value: unknown): ExploreCard[] {
   if (!Array.isArray(value)) return [];
@@ -109,7 +110,7 @@ export default function LocationDetailPage({ params }: { params: Promise<{ slug:
   const shortDescription = location.short_description || description;
   const difficultyClass = location.difficulty ? 'bg-orange-500 text-white' : 'bg-white/15 text-white';
 
-  const exploreTabs = [
+  const exploreTabs: ExploreTab[] = [
     { id: 'activities', label: 'Aktivnosti', icon: <Compass className="h-4 w-4" />, cards: activities },
     { id: 'nature', label: 'Prirodene lepote', icon: <Trees className="h-4 w-4" />, cards: nature },
     { id: 'stay', label: 'Smeštaj', icon: <BedDouble className="h-4 w-4" />, cards: stays },
