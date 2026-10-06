@@ -170,19 +170,19 @@ export default function NewLocationPage() {
   };
 
   return (
-    <div className="max-w-2xl mx-auto min-h-screen bg-white dark:bg-zinc-950 px-6 py-8 pb-24 transition-colors duration-200">
+    <div className="mx-auto min-h-screen w-full max-w-2xl bg-white px-4 py-6 pb-24 transition-colors duration-200 dark:bg-zinc-950 sm:px-6 sm:py-8">
       
-      <div className="flex items-center justify-between mb-8 border-b border-gray-100 dark:border-zinc-800 pb-4">
+      <div className="mb-8 flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 pb-4 dark:border-zinc-800">
         <Link href="/" className="flex items-center gap-2 text-sm text-gray-500 hover:text-zinc-800 dark:hover:text-white transition">
           <ArrowLeft className="w-4 h-4" /> Nazad
         </Link>
-        <h1 className="text-xl font-black text-zinc-900 dark:text-white tracking-tight">NOVA DESTINACIJA</h1>
+        <h1 className="text-lg font-black tracking-tight text-zinc-900 dark:text-white sm:text-xl">NOVA DESTINACIJA</h1>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
         
         {/* SEKCIJA 1: Osnovne informacije */}
-        <div className="space-y-4 bg-gray-50 dark:bg-zinc-900/50 p-5 rounded-2xl border border-gray-100 dark:border-zinc-900">
+        <div className="space-y-4 bg-gray-50 dark:bg-zinc-900/50 p-4 sm:p-5 rounded-2xl border border-gray-100 dark:border-zinc-900">
           <h3 className="text-sm font-bold text-[#006D44] uppercase tracking-wider">1. Osnovne informacije</h3>
           
           <div>
@@ -266,9 +266,9 @@ export default function NewLocationPage() {
         </div>
 
         {/* SEKCIJA 2: Geografija i Opisi */}
-        <div className="space-y-4 bg-gray-50 dark:bg-zinc-900/50 p-5 rounded-2xl border border-gray-100 dark:border-zinc-900">
+        <div className="space-y-4 bg-gray-50 dark:bg-zinc-900/50 p-4 sm:p-5 rounded-2xl border border-gray-100 dark:border-zinc-900">
           <h3 className="text-sm font-bold text-[#006D44] uppercase tracking-wider">2. Geografija & Opisi</h3>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label className="block text-xs font-semibold text-gray-600 dark:text-zinc-400 mb-1">Država</label>
               <select
@@ -309,7 +309,7 @@ export default function NewLocationPage() {
               className="w-full px-4 py-3 border border-gray-200 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-900 dark:text-white text-sm"
             />
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div><label className="mb-1 block text-xs font-semibold text-gray-600 dark:text-zinc-400">Trajanje</label><input value={formData.duration} onChange={(e) => setFormData({ ...formData, duration: e.target.value })} placeholder="npr. 3–4 sata" className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm dark:border-zinc-800 dark:bg-zinc-900 dark:text-white" /></div>
             <div><label className="mb-1 block text-xs font-semibold text-gray-600 dark:text-zinc-400">Nadmorska visina (m)</label><input type="number" min="0" value={formData.elevation} onChange={(e) => setFormData({ ...formData, elevation: e.target.value })} placeholder="npr. 1800" className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm dark:border-zinc-800 dark:bg-zinc-900 dark:text-white" /></div>
           </div>
@@ -333,7 +333,7 @@ export default function NewLocationPage() {
           </div>
         </div>
 
-        <div className="space-y-4 rounded-2xl border border-gray-100 bg-gray-50 p-5 dark:border-zinc-900 dark:bg-zinc-900/50">
+        <div className="space-y-4 rounded-2xl border border-gray-100 bg-gray-50 p-4 dark:border-zinc-900 dark:bg-zinc-900/50 sm:p-5">
           <h3 className="text-sm font-bold uppercase tracking-wider text-[#006D44]">Aktivnosti i preporuke</h3>
           <LocationItemsEditor value={{ activities: formData.activities, attractions: formData.attractions, accommodations: formData.accommodations, food: formData.food }} onChange={(items) => setFormData({ ...formData, ...items })} />
         </div>
@@ -344,7 +344,7 @@ export default function NewLocationPage() {
         </div>
 
         {/* SEKCIJA 3: Slike */}
-        <div className="space-y-4 bg-gray-50 dark:bg-zinc-900/50 p-5 rounded-2xl border border-gray-100 dark:border-zinc-900">
+        <div className="space-y-4 bg-gray-50 dark:bg-zinc-900/50 p-4 sm:p-5 rounded-2xl border border-gray-100 dark:border-zinc-900">
           <h3 className="text-sm font-bold text-[#006D44] uppercase tracking-wider">3. Fotografije destinacije</h3>
           <div>
             <label className="block text-xs font-semibold text-gray-600 dark:text-zinc-400 mb-2">Glavna (Cover) slika</label>
@@ -377,7 +377,7 @@ export default function NewLocationPage() {
         </div>
 
         {/* SEKCIJA 4: Checkbox-ovi */}
-        <div className="bg-gray-50 dark:bg-zinc-900/50 p-5 rounded-2xl border border-gray-100 dark:border-zinc-900 flex justify-between items-center gap-4">
+        <div className="flex flex-wrap items-center justify-start gap-x-5 gap-y-3 rounded-2xl border border-gray-100 bg-gray-50 p-4 dark:border-zinc-900 dark:bg-zinc-900/50 sm:p-5">
           <label className="flex items-center gap-2 cursor-pointer select-none text-sm font-medium dark:text-white">
             <input type="checkbox" checked={formData.child_friendly} onChange={(e) => setFormData({ ...formData, child_friendly: e.target.checked })} className="w-4 h-4 accent-[#006D44]" />
             Prilagođeno deci

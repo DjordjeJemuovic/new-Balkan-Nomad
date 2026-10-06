@@ -71,12 +71,12 @@ export default function HomePage() {
   });
 
   return (
-    <div className="max-w-xl mx-auto min-h-screen bg-white dark:bg-zinc-950 pb-28 shadow-sm transition-colors duration-200">
+    <div className="mx-auto min-h-screen w-full max-w-xl bg-white pb-28 shadow-sm transition-colors duration-200 dark:bg-zinc-950">
       
       {/* HEADER */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-gray-50 dark:border-zinc-900">
-        <span className="text-xl font-black text-[#006D44] tracking-wider">BALKAN NOMAD</span>
-        <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-50 px-4 py-4 dark:border-zinc-900 sm:px-6">
+        <span className="text-lg font-black tracking-wider text-[#006D44] sm:text-xl">BALKAN NOMAD</span>
+        <div className="flex items-center gap-1.5 sm:gap-2">
           {user ? (
             <>
               {role === 'admin' && (
@@ -254,23 +254,23 @@ export default function HomePage() {
       </div>
 
       {/* FIKSNI DONJI MENI */}
-      <div className="fixed bottom-0 left-0 right-0 max-w-xl mx-auto bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md border-t border-gray-100 dark:border-zinc-800 px-6 py-3 flex justify-between items-center z-50">
-        <button className="flex flex-col items-center gap-1 text-[#006D44] dark:text-emerald-500">
+      <div className="fixed inset-x-0 bottom-0 z-50 mx-auto flex w-full max-w-xl items-center justify-between gap-1 border-t border-gray-100 bg-white/95 px-2 py-3 backdrop-blur-md dark:border-zinc-800 dark:bg-zinc-900/95 sm:px-6">
+        <button className="flex min-w-0 flex-1 flex-col items-center gap-1 text-[#006D44] dark:text-emerald-500">
           <Home className="w-5 h-5" />
           <span className="text-[10px] font-bold">Početna</span>
         </button>
-        <button className="flex flex-col items-center gap-1 text-gray-400">
+        <button className="flex min-w-0 flex-1 flex-col items-center gap-1 text-gray-400">
           <Search className="w-5 h-5" />
           <span className="text-[10px] font-medium">Pretraga</span>
         </button>
         {role === 'admin' && (
-          <Link href="/admin/locations/new" className="flex flex-col items-center gap-1 text-emerald-600">
+          <Link href="/admin/locations/new" className="flex min-w-0 flex-1 flex-col items-center gap-1 text-emerald-600">
             <PlusCircle className="w-5 h-5 text-[#006D44]" />
             <span className="text-[10px] font-bold text-[#006D44]">Dodaj lokaciju</span>
           </Link>
         )}
-        <button className="flex flex-col items-center gap-1 text-gray-400"><Heart className="w-5 h-5" /><span className="text-[10px] font-medium">Omiljeno</span></button>
-        <button className="flex flex-col items-center gap-1 text-gray-400"><User className="w-5 h-5" /><span className="text-[10px] font-medium">Profil</span></button>
+        <button className="flex min-w-0 flex-1 flex-col items-center gap-1 text-gray-400"><Heart className="w-5 h-5" /><span className="text-[10px] font-medium">Omiljeno</span></button>
+        <button className="flex min-w-0 flex-1 flex-col items-center gap-1 text-gray-400"><User className="w-5 h-5" /><span className="text-[10px] font-medium">Profil</span></button>
       </div>
 
     </div>
