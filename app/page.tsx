@@ -17,7 +17,7 @@ export default function HomePage() {
 
   // Stanja za napredno filtriranje na klijentu
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCountry, setSelectedCountry] = useState('Sve drÅ¾ave');
+  const [selectedCountry, setSelectedCountry] = useState('__all__');
 
   const refreshFavorites = useCallback(() => {
     const favorites = locations
@@ -107,7 +107,7 @@ export default function HomePage() {
       (loc.region && loc.region.toLowerCase().includes(searchQuery.toLowerCase())) ||
       loc.short_description?.toLowerCase().includes(searchQuery.toLowerCase());
 
-    const matchesCountry = selectedCountry === 'Sve drÅ¾ave' || loc.country === selectedCountry;
+    const matchesCountry = selectedCountry === '__all__' || loc.country === selectedCountry;
 
     return matchesSearch && matchesCountry;
   });
@@ -176,7 +176,7 @@ export default function HomePage() {
               onChange={(e) => setSelectedCountry(e.target.value)}
               className="w-full pl-12 pr-4 py-3.5 bg-gray-50 dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 rounded-2xl text-sm focus:outline-none text-zinc-950 dark:text-white font-semibold appearance-none cursor-pointer"
             >
-              <option value="Sve drÅ¾ave">ðŸŒ Sve drÅ¾ave Balkana</option>
+              <option value="__all__">Sve države Balkana</option>
               <option value="Srbija">Srbija</option>
               <option value="Crna Gora">Crna Gora</option>
               <option value="Bosna i Hercegovina">Bosna i Hercegovina</option>
@@ -200,7 +200,7 @@ export default function HomePage() {
         <div className="flex items-center justify-between px-2 mb-2">
           <h3 className="text-sm font-black text-zinc-800 dark:text-zinc-200 tracking-wide uppercase flex items-center gap-1.5">
             <Compass className="w-4 h-4 text-[#006D44]" />
-            {activeView === 'favorites' ? 'Omiljene lokacije' : selectedCountry === 'Sve drÅ¾ave' ? 'PreporuÄene destinacije' : `Destinacije â€” ${selectedCountry}`}
+            {activeView === 'favorites' ? 'Omiljene lokacije' : selectedCountry === '__all__' ? 'Preporučene destinacije' : `Destinacije — ${selectedCountry}`}
           </h3>
           <span className="text-xs text-gray-400 font-medium">{visibleLocations.length} {activeView === 'favorites' ? 'saÄuvano' : 'naÄ‘eno'}</span>
         </div>
@@ -313,7 +313,7 @@ export default function HomePage() {
               <input autoFocus type="search" placeholder="Naziv, regija ili opis..." value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} className="w-full rounded-2xl border border-gray-200 bg-gray-50 py-3.5 pl-12 pr-4 text-sm text-zinc-950 focus:outline-none focus:ring-2 focus:ring-emerald-700 dark:border-zinc-700 dark:bg-zinc-950 dark:text-white" />
             </div>
             <select aria-label="Filtriraj po drÅ¾avi" value={selectedCountry} onChange={(event) => setSelectedCountry(event.target.value)} className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-950 dark:text-white">
-              <option value="Sve drÅ¾ave">Sve drÅ¾ave Balkana</option>
+              <option value="__all__">Sve države Balkana</option>
               {[...new Set(locations.map((location) => location.country).filter(Boolean))].sort().map((country) => <option key={country} value={country}>{country}</option>)}
             </select>
           </div>
