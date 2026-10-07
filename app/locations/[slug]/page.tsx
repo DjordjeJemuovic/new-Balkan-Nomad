@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, CalendarDays, Clock3, Compass, Heart, MapPin, Mountain, Pencil, Route, ShieldAlert, ParkingCircle, PawPrint, Baby, Utensils, BedDouble, Trees, Plus, Check } from 'lucide-react';
 
 type ExploreCard = { title: string; description?: string; subtitle?: string; image?: string; kind?: string; price?: string; distance?: string; difficulty?: string; season?: string };
-type ExploreTab = { id: string; label: string; icon: ReactNode; cards: ExploreCard[] };
+type ExploreTab = { id: string; label: string; icon: ReactNode; cards: ExploreCard[]; available?: boolean };
 
 function getCards(value: unknown): ExploreCard[] {
   if (!Array.isArray(value)) return [];
@@ -112,8 +112,8 @@ export default function LocationDetailPage({ params }: { params: Promise<{ slug:
   const exploreTabs: ExploreTab[] = [
     { id: 'activities', label: 'Aktivnosti', icon: <Compass className="h-4 w-4" />, cards: activities },
     { id: 'nature', label: 'Prirodene lepote', icon: <Trees className="h-4 w-4" />, cards: nature },
-    { id: 'stay', label: 'Smeštaj', icon: <BedDouble className="h-4 w-4" />, cards: stays },
-    { id: 'food', label: 'Hrana i piće', icon: <Utensils className="h-4 w-4" />, cards: food },
+    { id: 'stay', label: 'Smeštaj', icon: <BedDouble className="h-4 w-4" />, cards: stays, available: false },
+    { id: 'food', label: 'Hrana i piće', icon: <Utensils className="h-4 w-4" />, cards: food, available: false },
   ];
   const selectedExploreTab = exploreTabs.find((tab) => tab.id === activeExploreTab) ?? exploreTabs[0];
 
@@ -154,8 +154,11 @@ export default function LocationDetailPage({ params }: { params: Promise<{ slug:
 
     <section id="explore" className="scroll-mt-16 px-5 py-7 md:px-8">
       <h2 className="mb-4 text-lg font-semibold text-zinc-900 dark:text-white">Šta možeš da radiš i posetiš</h2>
-      <div role="tablist" aria-label="Kategorije lokacije" className="mb-5 flex gap-2 overflow-x-auto rounded-2xl border border-gray-200 dark:border-white/[0.07] bg-gray-50 dark:bg-[#171b18] p-2">
-        {exploreTabs.map((tab) => <button key={tab.id} id={`tab-${tab.id}`} type="button" role="tab" aria-selected={activeExploreTab === tab.id} aria-controls="explore-panel" onClick={() => setActiveExploreTab(tab.id)} className={`inline-flex shrink-0 items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition ${activeExploreTab === tab.id ? 'bg-emerald-700 text-white shadow-lg shadow-emerald-950/40' : 'text-zinc-600 hover:bg-white hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-white/[0.05] dark:hover:text-white'}`}>{tab.icon}{tab.label}<span className={`rounded-full px-2 py-0.5 text-xs ${activeExploreTab === tab.id ? 'bg-white/15 text-white' : 'bg-gray-200 text-zinc-600 dark:bg-white/[0.06] dark:text-zinc-400'}`}>{tab.cards.length}</span></button>)}
+      <div role="tablist" aria-label="Kategorije lokacije" className="mb-5 grid grid-cols-2 gap-2 rounded-2xl border border-gray-200 bg-gray-50 p-2 dark:border-white/[0.07] dark:bg-[#171b18] sm:grid-cols-4">
+        {exploreTabs.map((tab) => <button key={tab.id} id={`tab-${tab.id}`} type="button" role="tab" aria-selected={activeExploreTab === tab.id} aria-disabled={tab.available === false} disabled={tab.available === false} title={tab.available === false ? 'Ova sekcija nije dostupna' : undefined} aria-label={tab.available === false ? `${tab.label}, nedostupno` : tab.label} aria-controls="explore-panel" onClick={() => setActiveExploreTab(tab.id)} className={`flex min-h-20 w-full min-w-0 flex-col items-center justify-center gap-1.5 rounded-xl px-2 py-3 text-center text-sm font-semibold transition ${tab.available === false ? 'cursor-not-allowed bg-gray-100 text-zinc-400 dark:bg-white/[0.03] dark:text-zinc-600' : activeExploreTab === tab.id ? 'bg-emerald-700 text-white shadow-lg shadow-emerald-950/40' : 'text-zinc-600 hover:bg-white hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-white/[0.05] dark:hover:text-white'}`}>
+          <span className="flex min-w-0 flex-wrap items-center justify-center gap-1.5">{tab.icon}<span className="break-words leading-tight">{tab.label}</span></span>
+          <span className={`rounded-full px-2 py-0.5 text-xs ${tab.available === false ? 'bg-gray-200 text-zinc-500 dark:bg-white/[0.06] dark:text-zinc-500' : activeExploreTab === tab.id ? 'bg-white/15 text-white' : 'bg-gray-200 text-zinc-600 dark:bg-white/[0.06] dark:text-zinc-400'}`}>{tab.available === false ? 'Nedostupno' : tab.cards.length}</span>
+        </button>)}
       </div>
       <div id="explore-panel" role="tabpanel" aria-labelledby={`tab-${selectedExploreTab.id}`} className="min-h-48">
         <div className="mb-4 flex items-center gap-2 text-sm font-medium text-zinc-600 dark:text-zinc-400">{selectedExploreTab.icon}<span>{selectedExploreTab.label}</span></div>
