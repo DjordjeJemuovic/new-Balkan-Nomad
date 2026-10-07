@@ -4,7 +4,7 @@ import { use, useEffect, useState, type ReactNode } from 'react';
 import { supabase } from '../../../src/lib/supabase';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, CalendarDays, Clock3, Compass, Heart, MapPin, Mountain, Pencil, Route, ShieldAlert, ParkingCircle, PawPrint, Baby, Utensils, BedDouble, Trees, Plus, Check } from 'lucide-react';
+import { ArrowLeft, CalendarDays, Clock3, Compass, Heart, MapPin, Mountain, Pencil, Route, ShieldAlert, ParkingCircle, PawPrint, Baby, Utensils, BedDouble, Trees, Plus, Check, Share2, Copy } from 'lucide-react';
 import { loadSavedLocationIds } from '../../../src/lib/saved-locations';
 
 type ExploreCard = { title: string; description?: string; subtitle?: string; image?: string; kind?: string; price?: string; distance?: string; difficulty?: string; season?: string };
@@ -37,6 +37,8 @@ export default function LocationDetailPage({ params }: { params: Promise<{ slug:
   const [saved, setSaved] = useState(false);
   const [savingSaved, setSavingSaved] = useState(false);
   const [favoriteMessage, setFavoriteMessage] = useState('');
+  const [shareMenuOpen, setShareMenuOpen] = useState(false);
+  const [shareFeedback, setShareFeedback] = useState('');
   const [expanded, setExpanded] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
   const [activeExploreTab, setActiveExploreTab] = useState('activities');
@@ -76,6 +78,50 @@ export default function LocationDetailPage({ params }: { params: Promise<{ slug:
     } finally {
       setSavingSaved(false);
     }
+  };
+
+  const shareDestination = (network: string) => {
+    const url = window.location.href;
+    const title = location.title + ' — Balkan Nomad';
+    const encodedUrl = encodeURIComponent(url);
+    const encodedTitle = encodeURIComponent(title);
+    const shareLinks: Record<string, string> = {
+      Facebook: 'https://www.facebook.com/sharer/sharer.php?u=' + encodedUrl,
+      WhatsApp: 'https://api.whatsapp.com/send?text=' + encodeURIComponent(title + ' ' + url),
+      Telegram: 'https://t.me/share/url?url=' + encodedUrl + '&text=' + encodedTitle,
+      X: 'https://twitter.com/intent/tweet?url=' + encodedUrl + '&text=' + encodedTitle,
+      LinkedIn: 'https://www.linkedin.com/sharing/share-offsite/?url=' + encodedUrl,
+      Viber: 'viber://forward?text=' + encodeURIComponent(title + ' ' + url),
+    };
+    const link = shareLinks[network];
+    if (link) window.open(link, '_blank', 'noopener,noreferrer');
+    setShareMenuOpen(false);
+  };
+
+  const shareWithDevice = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: location.title, text: 'Pogledaj ovu destinaciju na Balkan Nomad aplikaciji.', url: window.location.href });
+        setShareFeedback('');
+      } catch (error) {
+        if (error instanceof Error && error.name !== 'AbortError') setShareFeedback('Deljenje trenutno nije uspelo.');
+      }
+    } else {
+      setShareFeedback('Deljenje preko uređaja nije podržano u ovom pregledaču.');
+    }
+    setShareMenuOpen(false);
+  };
+
+  const copyShareLink = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      setShareFeedback('Link je kopiran.');
+    } catch {
+      window.prompt('Kopiraj link destinacije:', window.location.href);
+      setShareFeedback('');
+    }
+    setShareMenuOpen(false);
+    window.setTimeout(() => setShareFeedback(''), 2500);
   };
 
   useEffect(() => {
@@ -141,11 +187,19 @@ export default function LocationDetailPage({ params }: { params: Promise<{ slug:
   return <main className="mx-auto min-h-screen w-full max-w-3xl min-w-0 bg-white dark:bg-[#101310] pb-44 text-zinc-900 dark:text-zinc-100 shadow-2xl">
     <header className="absolute z-20 flex w-full max-w-3xl items-center justify-between px-4 py-4 sm:px-5">
       <button onClick={() => router.back()} aria-label="Nazad" className="rounded-full border border-white/15 bg-black/35 p-2.5 text-white backdrop-blur-md"><ArrowLeft className="h-5 w-5" /></button>
-      <div className="flex gap-2">
+      <div className="relative flex gap-2">
+        <button type="button" onClick={() => { setShareMenuOpen((open) => !open); setShareFeedback(''); }} aria-label="Podeli destinaciju" aria-expanded={shareMenuOpen} className="rounded-full border border-white/15 bg-black/35 p-2.5 text-white backdrop-blur-md"><Share2 className="h-5 w-5" /></button>
+        {shareMenuOpen && <div role="menu" aria-label="Podeli destinaciju" className="absolute right-0 top-14 z-50 w-56 overflow-hidden rounded-2xl border border-white/10 bg-white p-2 text-zinc-900 shadow-xl dark:bg-zinc-900 dark:text-white">
+          <button type="button" role="menuitem" onClick={() => void shareWithDevice()} className="w-full rounded-xl px-3 py-2.5 text-left text-sm font-semibold hover:bg-gray-100 dark:hover:bg-zinc-800">Podeli preko uređaja</button>
+          {['WhatsApp', 'Facebook', 'Telegram', 'X', 'Viber', 'LinkedIn'].map((network) => <button key={network} type="button" role="menuitem" onClick={() => shareDestination(network)} className="w-full rounded-xl px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-zinc-800">{network}</button>)}
+          <div className="my-1 border-t border-gray-200 dark:border-zinc-700" />
+          <button type="button" role="menuitem" onClick={() => void copyShareLink()} className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-emerald-700 hover:bg-emerald-50 dark:text-emerald-300 dark:hover:bg-emerald-950/40"><Copy className="h-4 w-4" />Kopiraj link</button>
+        </div>}
         <button onClick={toggleSaved} aria-label={saved ? 'Ukloni iz sačuvanih' : 'Sačuvaj lokaciju'} className={`rounded-full border border-white/15 p-2.5 backdrop-blur-md ${saved ? 'bg-rose-500 text-white' : 'bg-black/35 text-white'}`}><Heart className={`h-5 w-5 ${saved ? 'fill-current' : ''}`} /></button>
         {role === 'admin' && <Link href={`/admin/locations/${location.slug}/edit`} aria-label="Izmeni lokaciju" className="rounded-full border border-white/15 bg-black/35 p-2.5 text-white backdrop-blur-md"><Pencil className="h-5 w-5" /></Link>}
       </div>
     </header>
+    {shareFeedback && <div role="status" className="fixed left-1/2 top-20 z-50 -translate-x-1/2 rounded-full bg-zinc-900 px-4 py-2 text-sm font-medium text-white shadow-lg">{shareFeedback}</div>}
 
     <section className="relative">
       {images.length ? <div className="flex snap-x snap-mandatory overflow-x-auto">

@@ -144,14 +144,14 @@ export default function HomePage() {
   }, [refreshFavorites]);
 
   const handleDelete = async (id: string, title: string) => {
-    const confirmDelete = window.confirm(`Da li si siguran da Å¾eliÅ¡ trajno da obriÅ¡eÅ¡ lokaciju: "${title}"?`);
+    const confirmDelete = window.confirm(`Da li si siguran da želiš trajno da obrišeš lokaciju: "${title}"?`);
     if (!confirmDelete) return;
 
     setDeletingId(id);
     const { error } = await supabase.from('locations').delete().eq('id', id);
 
     if (error) {
-      alert(`GreÅ¡ka pri brisanju: ${error.message}`);
+      alert(`Greška pri brisanju: ${error.message}`);
     } else {
       setLocations((current) => current.filter(loc => loc.id !== id));
       setFavoriteLocations((current) => current.filter((loc) => loc.id !== id));
@@ -195,7 +195,7 @@ export default function HomePage() {
           <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent z-10" />
           <img
             src="https://images.unsplash.com/photo-1568605117036-5fe5e7bab0b7?auto=format&fit=crop&w=800&q=80"
-            alt="Planinski pejzaÅ¾ Balkana"
+            alt="Planinski pejzaž Balkana"
             className="absolute inset-0 w-full h-full object-cover opacity-80"
           />
           <div className="relative z-20 text-white space-y-1">
@@ -233,7 +233,7 @@ export default function HomePage() {
               <option value="Albanija">Albanija</option>
               <option value="Slovenija">Slovenija</option>
               <option value="Bugarska">Bugarska</option>
-              <option value="GrÄka">GrÄka</option>
+              <option value="Grčka">Grčka</option>
               <option value="Rumunija">Rumunija</option>
             </select>
             <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-400">
@@ -250,16 +250,16 @@ export default function HomePage() {
             <Compass className="w-4 h-4 text-[#006D44]" />
             {activeView === 'favorites' ? 'Omiljene lokacije' : selectedCountry === '__all__' ? 'Preporučene destinacije' : `Destinacije — ${selectedCountry}`}
           </h3>
-          <span className="text-xs text-gray-400 font-medium">{visibleLocations.length} {activeView === 'favorites' ? 'saÄuvano' : 'naÄ‘eno'}</span>
+          <span className="text-xs text-gray-400 font-medium">{visibleLocations.length} {activeView === 'favorites' ? 'sačuvano' : 'prikazano'}</span>
         </div>
 
         {loading ? (
           <div className="py-12 text-center text-sm text-gray-400 font-medium animate-pulse">
-            UÄitavanje destinacija sa servera...
+            Učitavanje destinacija sa servera...
           </div>
         ) : visibleLocations.length === 0 ? (
           <div className="py-12 text-center text-sm text-gray-400 bg-gray-50 dark:bg-zinc-900/40 rounded-2xl border border-dashed border-gray-200 dark:border-zinc-800 px-6">
-            {activeView === 'favorites' ? 'JoÅ¡ nemaÅ¡ saÄuvanih omiljenih lokacija. Otvori destinaciju i dodirni srce da je saÄuvaÅ¡.' : 'Nema pronaÄ‘enih lokacija za zadate filtere.'}
+            {activeView === 'favorites' ? 'Još nemaš sačuvanih omiljenih lokacija. Otvori destinaciju i dodirni srce da je sačuvaš.' : 'Nema pronađenih lokacija za zadate filtere.'}
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-5">
@@ -284,14 +284,14 @@ export default function HomePage() {
                         onClick={() => handleDelete(loc.id, loc.title)}
                         disabled={deletingId === loc.id}
                         className="p-2 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md rounded-xl text-red-500 hover:text-red-700 shadow-sm transition"
-                        aria-label={`ObriÅ¡i lokaciju ${loc.title}`}
+                        aria-label={`Obriši lokaciju ${loc.title}`}
                       >
                         {deletingId === loc.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
                       </button>
                     </div>
                   )}
 
-                  {/* DINAMIÄŒKI LINK */}
+                  {/* DINAMIČKI LINK */}
                   <Link href={`/locations/${loc.slug}`} className="block cursor-pointer">
                     <div className="relative h-48 w-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
                       <img
@@ -329,9 +329,9 @@ export default function HomePage() {
                         <span className="text-[10px] font-bold bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 px-2 py-0.5 rounded-md uppercase">
                           #{loc.category_id}
                         </span>
-                        {loc.child_friendly && <span className="text-[10px] font-semibold bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded-md">ðŸ‘¶ Deca OK</span>}
-                        {loc.pet_allowed && <span className="text-[10px] font-semibold bg-purple-50 dark:bg-purple-950/30 text-purple-600 dark:text-purple-400 px-2 py-0.5 rounded-md">ðŸ¾ Pet Friendly</span>}
-                        {loc.parking_available && <span className="text-[10px] font-semibold bg-amber-50 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded-md">ðŸš— Parking</span>}
+                        {loc.child_friendly && <span className="text-[10px] font-semibold bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded-md">Deca dobrodošla</span>}
+                        {loc.pet_allowed && <span className="text-[10px] font-semibold bg-purple-50 dark:bg-purple-950/30 text-purple-600 dark:text-purple-400 px-2 py-0.5 rounded-md">Ljubimci dobrodošli</span>}
+                        {loc.parking_available && <span className="text-[10px] font-semibold bg-amber-50 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded-md">Parking</span>}
                       </div>
                     </div>
                   </Link>
@@ -355,8 +355,8 @@ export default function HomePage() {
         <section role="dialog" aria-modal="true" aria-labelledby="search-dialog-title" className="flex max-h-[85vh] w-full max-w-xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl dark:bg-zinc-900">
           <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-zinc-800">
             <div>
-              <h2 id="search-dialog-title" className="text-base font-bold text-zinc-900 dark:text-white">PretraÅ¾i destinacije</h2>
-              <p className="mt-1 text-xs text-gray-500 dark:text-zinc-400">PretraÅ¾i po nazivu, regiji ili opisu.</p>
+              <h2 id="search-dialog-title" className="text-base font-bold text-zinc-900 dark:text-white">Pretraži destinacije</h2>
+              <p className="mt-1 text-xs text-gray-500 dark:text-zinc-400">Pretraži po nazivu, regiji ili opisu.</p>
             </div>
             <button type="button" onClick={() => setIsSearchOpen(false)} aria-label="Zatvori pretragu" className="rounded-full p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-zinc-800"><X className="h-5 w-5" /></button>
           </div>
@@ -365,7 +365,7 @@ export default function HomePage() {
               <Search className="absolute left-4 top-3.5 h-5 w-5 text-gray-400" />
               <input autoFocus type="search" placeholder="Unesi naziv, regiju ili opis..." value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} className="w-full rounded-2xl border border-gray-200 bg-gray-50 py-3.5 pl-12 pr-4 text-sm text-zinc-950 focus:outline-none focus:ring-2 focus:ring-emerald-700 dark:border-zinc-700 dark:bg-zinc-950 dark:text-white" />
             </div>
-            <select aria-label="Filtriraj po drÅ¾avi" value={selectedCountry} onChange={(event) => setSelectedCountry(event.target.value)} className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-950 dark:text-white">
+            <select aria-label="Filtriraj po državi" value={selectedCountry} onChange={(event) => setSelectedCountry(event.target.value)} className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-950 dark:text-white">
               <option value="__all__">Sve države Balkana</option>
               {['Srbija', 'Crna Gora', 'Bosna i Hercegovina', 'Hrvatska', 'Severna Makedonija', 'Albanija', 'Slovenija', 'Bugarska', 'Grčka', 'Rumunija'].map((country) => <option key={country} value={country}>{country}</option>)}
             </select>
