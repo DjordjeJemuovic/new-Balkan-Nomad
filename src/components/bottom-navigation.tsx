@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Heart, Home, PlusCircle, Search, User } from 'lucide-react';
+import { Check, Heart, Home, Languages, PlusCircle, Search, User } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 const FAVORITES_EVENT = 'balkan-nomad:show-favorites';
@@ -17,6 +17,7 @@ export default function BottomNavigation() {
   const [role, setRole] = useState('user');
   const [favoriteCount, setFavoriteCount] = useState(0);
   const [activeView, setActiveView] = useState<'home' | 'favorites'>('home');
+  const [languageMenuOpen, setLanguageMenuOpen] = useState(false);
 
   useEffect(() => {
     const countGuestFavorites = () => {
@@ -114,6 +115,19 @@ export default function BottomNavigation() {
       <Link href="/profile" aria-current={pathname === '/profile' ? 'page' : undefined} className={`flex min-w-0 flex-1 flex-col items-center gap-1 ${pathname === '/profile' ? 'text-[#006D44] dark:text-emerald-400' : 'text-gray-400 hover:text-[#006D44]'}`}>
         <User className="h-5 w-5" /><span className="text-[10px] font-medium">Profil</span>
       </Link>
+      <div className="relative flex min-w-0 flex-1 justify-center">
+        {languageMenuOpen && <div role="menu" aria-label="Izbor jezika" className="absolute bottom-14 right-0 w-52 rounded-2xl border border-gray-200 bg-white p-2 text-zinc-900 shadow-xl dark:border-zinc-700 dark:bg-zinc-900 dark:text-white">
+          <div className="flex items-center justify-between rounded-xl px-3 py-2.5 text-sm font-semibold text-emerald-800 dark:text-emerald-300">
+            <span>Srpski (latinica)</span><Check className="h-4 w-4" />
+          </div>
+          <button type="button" role="menuitem" disabled className="w-full cursor-not-allowed rounded-xl px-3 py-2.5 text-left text-sm text-zinc-400">
+            English <span className="ml-1 text-xs">(uskoro)</span>
+          </button>
+        </div>}
+        <button type="button" onClick={() => setLanguageMenuOpen((open) => !open)} aria-label="Promeni jezik" aria-expanded={languageMenuOpen} className="flex min-w-0 flex-1 flex-col items-center gap-1 text-gray-400 hover:text-[#006D44]">
+          <Languages className="h-5 w-5" /><span className="text-[10px] font-medium">Jezik</span>
+        </button>
+      </div>
     </nav>
   );
 }
