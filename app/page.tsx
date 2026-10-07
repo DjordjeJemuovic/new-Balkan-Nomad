@@ -22,6 +22,7 @@ export default function HomePage() {
   const [offset, setOffset] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
+  const [isDesktop, setIsDesktop] = useState(false);
   const listEndRef = useRef<HTMLDivElement | null>(null);
   const listTopRef = useRef<HTMLDivElement | null>(null);
   const requestIdRef = useRef(0);
@@ -32,6 +33,14 @@ export default function HomePage() {
   // Stanja za pretragu i filtriranje destinacija na serveru
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCountry, setSelectedCountry] = useState('__all__');
+
+  useEffect(() => {
+    const desktopQuery = window.matchMedia('(min-width: 1024px)');
+    const updateViewport = () => setIsDesktop(desktopQuery.matches);
+    updateViewport();
+    desktopQuery.addEventListener('change', updateViewport);
+    return () => desktopQuery.removeEventListener('change', updateViewport);
+  }, []);
 
   const refreshFavorites = useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -77,22 +86,23 @@ export default function HomePage() {
       if (selectedCountry !== '__all__') query = query.eq('country', selectedCountry);
       const term = searchQuery.trim().replace(/[^\p{L}\p{N}\s-]/gu, '').replace(/\s+/g, ' ');
       if (term) query = query.or(`title.ilike.%${term}%,region.ilike.%${term}%,short_description.ilike.%${term}%`);
-      const { data, count, error } = await query.range(0, INITIAL_BATCH_SIZE - 1);
+      const initialSize = isDesktop ? PAGE_SIZE : INITIAL_BATCH_SIZE;
+      const { data, count, error } = await query.range(0, initialSize - 1);
       if (requestId !== requestIdRef.current) return;
       if (error) setListError('Destinacije trenutno nisu mogle da se učitaju. Pokušaj ponovo.');
       else {
         setLocations(data ?? []);
         setOffset(data?.length ?? 0);
         setTotalCount(count ?? 0);
-        setHasMore((data?.length ?? 0) === INITIAL_BATCH_SIZE && (count ?? 0) > (data?.length ?? 0) && (data?.length ?? 0) < PAGE_SIZE);
+        setHasMore(!isDesktop && (data?.length ?? 0) === INITIAL_BATCH_SIZE && (count ?? 0) > (data?.length ?? 0));
       }
       setLoading(false);
     }, searchQuery.trim() ? 250 : 0);
     return () => window.clearTimeout(timer);
-  }, [searchQuery, selectedCountry, retryCount]);
+  }, [searchQuery, selectedCountry, retryCount, isDesktop]);
 
   const loadMore = useCallback(async () => {
-    if (loading || loadingMore || !hasMore) return;
+    if (isDesktop || loading || loadingMore || !hasMore) return;
     const requestId = requestIdRef.current;
     setLoadingMore(true);
     setListError('');
@@ -110,7 +120,7 @@ export default function HomePage() {
       setHasMore((data?.length ?? 0) === INITIAL_BATCH_SIZE && nextOffset < currentPage * PAGE_SIZE && nextOffset < totalCount);
     }
     setLoadingMore(false);
-  }, [loading, loadingMore, hasMore, selectedCountry, searchQuery, offset, currentPage, totalCount, locations.length]);
+  }, [isDesktop, loading, loadingMore, hasMore, selectedCountry, searchQuery, offset, currentPage, totalCount, locations.length]);
 
   const goToPage = useCallback(async (page: number) => {
     const pageCount = Math.ceil(totalCount / PAGE_SIZE);
@@ -129,17 +139,18 @@ export default function HomePage() {
     if (selectedCountry !== '__all__') query = query.eq('country', selectedCountry);
     const term = searchQuery.trim().replace(/[^\p{L}\p{N}\s-]/gu, '').replace(/\s+/g, ' ');
     if (term) query = query.or(`title.ilike.%${term}%,region.ilike.%${term}%,short_description.ilike.%${term}%`);
-    const { data, error } = await query.range(pageOffset, pageOffset + INITIAL_BATCH_SIZE - 1);
+    const pageSize = isDesktop ? PAGE_SIZE : INITIAL_BATCH_SIZE;
+    const { data, error } = await query.range(pageOffset, pageOffset + pageSize - 1);
     if (requestId !== requestIdRef.current) return;
     if (error) setListError('Destinacije trenutno nisu mogle da se učitaju. Pokušaj ponovo.');
     else {
       setLocations(data ?? []);
       setOffset(pageOffset + (data?.length ?? 0));
-      setHasMore((data?.length ?? 0) === INITIAL_BATCH_SIZE && pageOffset + (data?.length ?? 0) < page * PAGE_SIZE && pageOffset + (data?.length ?? 0) < totalCount);
+      setHasMore(!isDesktop && (data?.length ?? 0) === INITIAL_BATCH_SIZE && pageOffset + (data?.length ?? 0) < page * PAGE_SIZE && pageOffset + (data?.length ?? 0) < totalCount);
       window.setTimeout(() => listTopRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0);
     }
     setLoading(false);
-  }, [totalCount, currentPage, loading, loadingMore, selectedCountry, searchQuery]);
+  }, [totalCount, currentPage, loading, loadingMore, selectedCountry, searchQuery, isDesktop]);
 
   useEffect(() => {
     const target = listEndRef.current;
@@ -201,7 +212,7 @@ export default function HomePage() {
     ? favoriteLocations
     : locations;
   const pageCount = Math.ceil(totalCount / PAGE_SIZE);
-  const showPagination = pageCount > 1 && (!hasMore || locations.length >= PAGE_SIZE);
+  const showPagination = pageCount > 1 && (isDesktop || !hasMore || locations.length >= PAGE_SIZE);
   const paginationControls = showPagination ? (
     <div className="flex items-center justify-center gap-5 py-4" aria-label="Stranice destinacija">
       <button type="button" onClick={() => void goToPage(currentPage - 1)} disabled={currentPage <= 1 || loading} aria-label="Prethodna stranica" className="rounded-full border border-gray-200 p-2 text-zinc-700 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800">
@@ -215,11 +226,17 @@ export default function HomePage() {
   ) : null;
 
   return (
-    <div className="mx-auto min-h-screen w-full max-w-xl bg-white pb-28 shadow-sm transition-colors duration-200 dark:bg-zinc-950">
+    <div className="mx-auto min-h-screen w-full max-w-xl bg-white pb-28 shadow-sm transition-colors duration-200 dark:bg-zinc-950 lg:max-w-none lg:pb-16">
 
       {/* HEADER */}
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-50 px-4 py-4 dark:border-zinc-900 sm:px-6">
-        <span className="text-lg font-black tracking-wider text-[#006D44] sm:text-xl">BALKAN NOMAD</span>
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-50 px-4 py-4 dark:border-zinc-900 sm:px-6 lg:px-10 lg:py-5">
+        <Link href="/" className="text-lg font-black tracking-wider text-[#006D44] sm:text-xl lg:text-2xl">BALKAN NOMAD</Link>
+        <nav className="hidden items-center gap-2 lg:flex" aria-label="Glavna navigacija">
+          <button type="button" onClick={() => setActiveView('home')} className={`rounded-full px-4 py-2 text-sm font-semibold transition ${activeView === 'home' ? 'bg-emerald-50 text-[#006D44] dark:bg-emerald-950/40 dark:text-emerald-400' : 'text-zinc-600 hover:bg-gray-100 dark:text-zinc-300 dark:hover:bg-zinc-800'}`}>Destinacije</button>
+          <button type="button" onClick={() => { void refreshFavorites(); setActiveView('favorites'); }} className={`rounded-full px-4 py-2 text-sm font-semibold transition ${activeView === 'favorites' ? 'bg-emerald-50 text-[#006D44] dark:bg-emerald-950/40 dark:text-emerald-400' : 'text-zinc-600 hover:bg-gray-100 dark:text-zinc-300 dark:hover:bg-zinc-800'}`}>Omiljene</button>
+          <button type="button" onClick={() => setIsSearchOpen(true)} className="rounded-full px-4 py-2 text-sm font-semibold text-zinc-600 transition hover:bg-gray-100 dark:text-zinc-300 dark:hover:bg-zinc-800">Pretraga</button>
+          {user && <Link href="/profile" className="rounded-full px-4 py-2 text-sm font-semibold text-zinc-600 transition hover:bg-gray-100 dark:text-zinc-300 dark:hover:bg-zinc-800">Profil</Link>}
+        </nav>
         <div className="flex items-center gap-1.5 sm:gap-2">
           {user ? (
             <>
@@ -241,22 +258,23 @@ export default function HomePage() {
       </div>
 
       {/* HERO SEKCIJA */}
-      <div className="px-4 mt-4 mb-6">
-        <div className="relative h-56 rounded-3xl overflow-hidden bg-zinc-800 flex items-end p-6">
+      <main className="mx-auto w-full lg:max-w-7xl lg:px-8">
+      <div className="px-4 mt-4 mb-6 sm:px-6 lg:mt-8 lg:mb-10 lg:px-0">
+        <div className="relative h-56 rounded-3xl overflow-hidden bg-zinc-800 flex items-end p-6 lg:h-80 lg:p-10">
           <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent z-10" />
           <img
             src="https://images.unsplash.com/photo-1568605117036-5fe5e7bab0b7?auto=format&fit=crop&w=800&q=80"
             alt="Planinski pejzaž Balkana"
             className="absolute inset-0 w-full h-full object-cover opacity-80"
           />
-          <div className="relative z-20 text-white space-y-1">
-            <h2 className="text-xl font-black leading-tight tracking-tight">KREĆE BALKANSKA AVANTURA</h2>
-            <p className="text-xs text-zinc-300">Sve rute, skriveni kutkovi i divljina na jednom mestu.</p>
+          <div className="relative z-20 space-y-1 text-white lg:space-y-3">
+            <h2 className="text-xl font-black leading-tight tracking-tight lg:text-4xl">KREĆE BALKANSKA AVANTURA</h2>
+            <p className="text-xs text-zinc-300 lg:text-base">Sve rute, skriveni kutkovi i divljina na jednom mestu.</p>
           </div>
         </div>
 
         {/* PRETRAGA I SELEKTOR */}
-        <div className="mt-4 space-y-2">
+        <div className="mt-4 space-y-2 lg:mt-6 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(240px,320px)] lg:gap-4 lg:space-y-0">
           <div className="relative">
             <Search className="absolute left-4 top-3.5 h-5 w-5 text-gray-400" />
             <input
@@ -295,7 +313,7 @@ export default function HomePage() {
       </div>
 
       {/* KARTICE SA LOKACIJAMA */}
-    <div ref={listTopRef} className="scroll-mt-4 px-4 space-y-4">
+    <div ref={listTopRef} className="scroll-mt-4 mx-auto w-full space-y-4 px-4 sm:px-6 lg:max-w-7xl lg:px-8">
         <div className="flex items-center justify-between px-2 mb-2">
           <h3 className="text-sm font-black text-zinc-800 dark:text-zinc-200 tracking-wide uppercase flex items-center gap-1.5">
             <Compass className="w-4 h-4 text-[#006D44]" />
@@ -313,7 +331,7 @@ export default function HomePage() {
             {activeView === 'favorites' ? 'Još nemaš sačuvanih omiljenih lokacija. Otvori destinaciju i dodirni srce da je sačuvaš.' : 'Nema pronađenih lokacija za zadate filtere.'}
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-5">
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-5 lg:gap-6">
             {visibleLocations.map((loc) => {
               // Provera alternativnih naziva kolona ako cover_image vrati prazno
               const imageSource = loc.cover_image || loc.cover_url || loc.image || "https://placeholder.co/800x450/27272a/ffffff?text=Nema+Slike+u+Bazi";
@@ -344,7 +362,7 @@ export default function HomePage() {
 
                   {/* DINAMIČKI LINK */}
                   <Link href={`/locations/${loc.slug}`} className="block cursor-pointer">
-                    <div className="relative h-48 w-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
+                    <div className="relative h-48 w-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden lg:h-44">
                       <img
                         src={imageSource}
                         alt={loc.title}
@@ -402,6 +420,7 @@ export default function HomePage() {
       )}
       {activeView === 'home' && !loading && paginationControls}
       </div>
+      </main>
 
       {isSearchOpen && <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/50 px-3 pb-3 pt-10 backdrop-blur-sm sm:items-center sm:p-5" onMouseDown={(event) => { if (event.target === event.currentTarget) setIsSearchOpen(false); }}>
         <section role="dialog" aria-modal="true" aria-labelledby="search-dialog-title" className="flex max-h-[85vh] w-full max-w-xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl dark:bg-zinc-900">
