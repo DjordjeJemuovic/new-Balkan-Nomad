@@ -279,15 +279,9 @@ export default function EditLocationPage({ params }: { params: Promise<{ slug: s
       const items = buildLocationItems(itemsForm)
         .map((item) => ({ ...item, location_id: locationId }));
       if (items.length) {
-        const { data: savedItems, error: itemsError } = await supabase.from('location_items').insert(items).select('latitude,longitude');
+        const { error: itemsError } = await supabase.from('location_items').insert(items);
         if (itemsError) {
           setMessage({ text: `Destinacija je izmenjena, ali preporuke nisu sačuvane: ${describeSupabaseError(itemsError)}`, isError: true });
-          return;
-        }
-        const expectedCoordinateItems = items.filter((item) => item.latitude != null && item.longitude != null).length;
-        const savedCoordinateItems = (savedItems || []).filter((item) => item.latitude != null && item.longitude != null).length;
-        if (savedCoordinateItems !== expectedCoordinateItems) {
-          setMessage({ text: `Destinacija je izmenjena, ali koordinate za stavke nisu upisane. Poslato: ${expectedCoordinateItems}, sačuvano: ${savedCoordinateItems}.`, isError: true });
           return;
         }
       }

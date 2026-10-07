@@ -117,7 +117,7 @@ export default function LocationDetailPage({ params }: { params: Promise<{ slug:
   ];
   const selectedExploreTab = exploreTabs.find((tab) => tab.id === activeExploreTab) ?? exploreTabs[0];
 
-  return <main className="mx-auto min-h-screen w-full max-w-3xl min-w-0 bg-white dark:bg-[#101310] pb-28 text-zinc-900 dark:text-zinc-100 shadow-2xl">
+  return <main className="mx-auto min-h-screen w-full max-w-3xl min-w-0 bg-white dark:bg-[#101310] pb-44 text-zinc-900 dark:text-zinc-100 shadow-2xl">
     <header className="absolute z-20 flex w-full max-w-3xl items-center justify-between px-4 py-4 sm:px-5">
       <button onClick={() => router.back()} aria-label="Nazad" className="rounded-full border border-white/15 bg-black/35 p-2.5 text-white backdrop-blur-md"><ArrowLeft className="h-5 w-5" /></button>
       <div className="flex gap-2">
@@ -178,7 +178,7 @@ export default function LocationDetailPage({ params }: { params: Promise<{ slug:
       <div className="mb-5 flex flex-wrap gap-2">{[[Baby,'Deca',location.child_friendly], [PawPrint,'Ljubimci',location.pet_allowed], [ParkingCircle,'Parking',location.parking_available]].map(([Icon, label, yes]: any) => <span key={label} className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs ${yes ? 'border-sky-400/20 bg-sky-400/10 text-sky-700 dark:text-sky-200' : 'border-gray-200 dark:border-white/[0.06] bg-gray-100 dark:bg-white/[0.03] text-zinc-600'}`}><Icon className="h-3.5 w-3.5" />{label}{yes && <Check className="h-3 w-3" />}</span>)}</div>
     </section>
 
-    <div className="fixed inset-x-0 bottom-0 z-40 mx-auto flex max-w-3xl gap-3 border-t border-gray-200 bg-white/95 px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-xl dark:border-white/[0.08] dark:bg-[#151915]/95 md:px-8">
+    <div className="fixed inset-x-0 bottom-[calc(4.25rem+env(safe-area-inset-bottom))] z-40 mx-auto flex max-w-3xl gap-3 border-t border-gray-200 bg-white/95 px-5 py-3 backdrop-blur-xl dark:border-white/[0.08] dark:bg-[#151915]/95 md:px-8">
       <button onClick={toggleSaved} className={`flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-semibold ${saved ? 'border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300' : 'border-gray-200 bg-gray-50 text-zinc-900 dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-100'}`}><Heart className={`h-4 w-4 ${saved ? 'fill-current' : ''}`} />{saved ? 'Sačuvano' : 'Sačuvaj'}</button>
     </div>
   </main>;

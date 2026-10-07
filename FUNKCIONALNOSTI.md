@@ -79,7 +79,6 @@ Ovaj dokument opisuje funkcionalnosti koje su trenutno implementirane u kodu apl
 ## 8. Funkcionalnosti koje još nisu povezane
 
 - Dugme „Profil” u donjoj navigaciji trenutno nema povezanu stranicu ili akciju.
-- Koordinate stavki mogu da se obrađuju i čuvaju u podacima, ali trenutna forma za stavke ne nudi polja za njihov unos, a detaljna stranica ne prikazuje mapu ili navigaciju.
 - Omiljene lokacije nisu vezane za korisnički nalog.
 - PWA ne radi offline.
 - Registracija je blokirana kroz korisnički interfejs. Za potpuno isključenje javne registracije potrebno je isključiti prijave i u Supabase podešavanjima.

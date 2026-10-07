@@ -1,5 +1,3 @@
-import { parseOptionalCoordinate } from './coordinates';
-
 export type LocationItemType = 'activity' | 'attraction' | 'venue';
 
 export type LocationItemFormValue = {
@@ -12,8 +10,6 @@ export type LocationItemFormValue = {
   difficulty?: string;
   price_level?: number;
   distance_km?: number;
-  latitude?: string;
-  longitude?: string;
 };
 
 export type LocationItemGroup = 'activities' | 'attractions' | 'accommodations' | 'food';
@@ -38,8 +34,6 @@ export function buildLocationItems(form: LocationItemFormData) {
     ...row,
     title: row.title.trim(),
     description: row.description.trim() || null,
-    latitude: parseOptionalCoordinate(row.latitude, 'Latitude', -90, 90),
-    longitude: parseOptionalCoordinate(row.longitude, 'Longitude', -180, 180),
     sort_order,
   }));
 }
@@ -69,8 +63,6 @@ function asFormItem(row: Record<string, unknown>, description?: string): Locatio
     difficulty: typeof row.difficulty === 'string' ? row.difficulty : undefined,
     price_level: typeof row.price_level === 'number' ? row.price_level : undefined,
     distance_km: typeof row.distance_km === 'number' ? row.distance_km : undefined,
-    latitude: typeof row.latitude === 'number' ? String(row.latitude) : undefined,
-    longitude: typeof row.longitude === 'number' ? String(row.longitude) : undefined,
   };
 }
 
