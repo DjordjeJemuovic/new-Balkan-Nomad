@@ -1,31 +1,45 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../src/lib/supabase';
 import Link from 'next/link';
 import { Search, MapPin, Compass, Trash2, Loader2, Globe, Pencil, X } from 'lucide-react';
 import { loadSavedLocationIds } from '../src/lib/saved-locations';
 
+const PAGE_SIZE = 5;
+
 export default function HomePage() {
   const [user, setUser] = useState<any>(null);
   const [role, setRole] = useState<string>('user');
   const [locations, setLocations] = useState<any[]>([]);
+  const [favoriteLocations, setFavoriteLocations] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const [listError, setListError] = useState('');
+  const [retryCount, setRetryCount] = useState(0);
+  const [offset, setOffset] = useState(0);
+  const listEndRef = useRef<HTMLDivElement | null>(null);
+  const requestIdRef = useRef(0);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [activeView, setActiveView] = useState<'home' | 'favorites'>('home');
-  const [favoriteSlugs, setFavoriteSlugs] = useState<string[]>([]);
 
-  // Stanja za napredno filtriranje na klijentu
+  // Stanja za pretragu i filtriranje destinacija na serveru
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCountry, setSelectedCountry] = useState('__all__');
 
   const refreshFavorites = useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession();
-    const savedIds = await loadSavedLocationIds(locations, session?.user.id ?? null);
-    const ids = savedIds ?? await loadSavedLocationIds(locations, null);
-    setFavoriteSlugs(locations.filter((location) => ids?.has(location.id)).map((location) => location.slug));
-  }, [locations]);
+    const ids = await loadSavedLocationIds(session?.user.id ?? null);
+    if (!ids) return;
+    if (ids.size) {
+      const { data } = await supabase.from('locations').select('*').in('id', [...ids]).order('created_at', { ascending: false });
+      if (data) setFavoriteLocations(data);
+    } else {
+      setFavoriteLocations([]);
+    }
+  }, []);
 
   useEffect(() => {
     async function checkUser() {
@@ -37,26 +51,68 @@ export default function HomePage() {
       }
     }
 
-    async function fetchLocations() {
-      setLoading(true);
-      const { data, error } = await supabase
-        .from('locations')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (!error && data) {
-        setLocations(data);
-      }
-      setLoading(false);
-    }
-
     checkUser();
-    fetchLocations();
   }, []);
 
   useEffect(() => {
-    if (locations.length) void refreshFavorites();
-  }, [locations, user, refreshFavorites]);
+    void refreshFavorites();
+  }, [user, refreshFavorites]);
+
+  useEffect(() => {
+    const requestId = ++requestIdRef.current;
+    const timer = window.setTimeout(async () => {
+      setLoading(true);
+      setLoadingMore(false);
+      setListError('');
+      setLocations([]);
+      setOffset(0);
+      setHasMore(false);
+      let query = supabase.from('locations').select('*').order('created_at', { ascending: false });
+      if (selectedCountry !== '__all__') query = query.eq('country', selectedCountry);
+      const term = searchQuery.trim().replace(/[^\p{L}\p{N}\s-]/gu, '').replace(/\s+/g, ' ');
+      if (term) query = query.or(`title.ilike.%${term}%,region.ilike.%${term}%,short_description.ilike.%${term}%`);
+      const { data, error } = await query.range(0, PAGE_SIZE - 1);
+      if (requestId !== requestIdRef.current) return;
+      if (error) setListError('Destinacije trenutno nisu mogle da se učitaju. Pokušaj ponovo.');
+      else {
+        setLocations(data ?? []);
+        setOffset(data?.length ?? 0);
+        setHasMore((data?.length ?? 0) === PAGE_SIZE);
+      }
+      setLoading(false);
+    }, searchQuery.trim() ? 250 : 0);
+    return () => window.clearTimeout(timer);
+  }, [searchQuery, selectedCountry, retryCount]);
+
+  const loadMore = useCallback(async () => {
+    if (loading || loadingMore || !hasMore) return;
+    const requestId = requestIdRef.current;
+    setLoadingMore(true);
+    setListError('');
+    let query = supabase.from('locations').select('*').order('created_at', { ascending: false });
+    if (selectedCountry !== '__all__') query = query.eq('country', selectedCountry);
+    const term = searchQuery.trim().replace(/[^\p{L}\p{N}\s-]/gu, '').replace(/\s+/g, ' ');
+    if (term) query = query.or(`title.ilike.%${term}%,region.ilike.%${term}%,short_description.ilike.%${term}%`);
+    const { data, error } = await query.range(offset, offset + PAGE_SIZE - 1);
+    if (requestId !== requestIdRef.current) return;
+    if (error) setListError('Još destinacija nije moglo da se učita. Pokušaj ponovo.');
+    else {
+      setLocations((current) => [...current, ...(data ?? []).filter((row) => !current.some((item) => item.id === row.id))]);
+      setOffset((current) => current + (data?.length ?? 0));
+      setHasMore((data?.length ?? 0) === PAGE_SIZE);
+    }
+    setLoadingMore(false);
+  }, [loading, loadingMore, hasMore, selectedCountry, searchQuery, offset]);
+
+  useEffect(() => {
+    const target = listEndRef.current;
+    if (!target || typeof IntersectionObserver === 'undefined') return;
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) void loadMore();
+    }, { rootMargin: '0px 0px 250px 0px' });
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [loadMore]);
 
   useEffect(() => {
     const syncFavorites = () => { void refreshFavorites(); };
@@ -97,25 +153,15 @@ export default function HomePage() {
     if (error) {
       alert(`GreÅ¡ka pri brisanju: ${error.message}`);
     } else {
-      setLocations(locations.filter(loc => loc.id !== id));
+      setLocations((current) => current.filter(loc => loc.id !== id));
+      setFavoriteLocations((current) => current.filter((loc) => loc.id !== id));
     }
     setDeletingId(null);
   };
 
-  // Kombinovana pretraga (unos teksta) i filter drÅ¾ava (padajuÄ‡i meni)
-  const filteredLocations = locations.filter((loc) => {
-    const matchesSearch =
-      loc.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (loc.region && loc.region.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      loc.short_description?.toLowerCase().includes(searchQuery.toLowerCase());
-
-    const matchesCountry = selectedCountry === '__all__' || loc.country === selectedCountry;
-
-    return matchesSearch && matchesCountry;
-  });
   const visibleLocations = activeView === 'favorites'
-    ? locations.filter((location) => favoriteSlugs.includes(location.slug))
-    : filteredLocations;
+    ? favoriteLocations
+    : locations;
 
   return (
     <div className="mx-auto min-h-screen w-full max-w-xl bg-white pb-28 shadow-sm transition-colors duration-200 dark:bg-zinc-950">
@@ -218,9 +264,6 @@ export default function HomePage() {
         ) : (
           <div className="grid grid-cols-1 gap-5">
             {visibleLocations.map((loc) => {
-              // Ispisujemo objekat u konzolu da na licu mesta vidiÅ¡ Å¡ta baza taÄno vraÄ‡a
-              console.log("Podaci iz baze za lokaciju:", loc.title, loc);
-
               // Provera alternativnih naziva kolona ako cover_image vrati prazno
               const imageSource = loc.cover_image || loc.cover_url || loc.image || "https://placeholder.co/800x450/27272a/ffffff?text=Nema+Slike+u+Bazi";
 
@@ -298,6 +341,14 @@ export default function HomePage() {
             })}
           </div>
         )}
+        {activeView === 'home' && !loading && (
+          <>
+            {listError && <div className="py-3 text-center text-sm text-red-600">{listError} <button type="button" onClick={() => hasMore ? void loadMore() : setRetryCount((count) => count + 1)} className="font-semibold underline">Pokušaj ponovo</button></div>}
+            {loadingMore && <div className="flex items-center justify-center gap-2 py-5 text-sm text-gray-500"><Loader2 className="h-4 w-4 animate-spin" /> Učitavanje još destinacija...</div>}
+            {hasMore && <div ref={listEndRef} aria-hidden="true" className="h-2" />}
+            {!hasMore && locations.length > 0 && <p className="py-4 text-center text-xs text-gray-400">Prikazane su sve destinacije za izabrane filtere.</p>}
+          </>
+        )}
       </div>
 
       {isSearchOpen && <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/50 px-3 pb-3 pt-10 backdrop-blur-sm sm:items-center sm:p-5" onMouseDown={(event) => { if (event.target === event.currentTarget) setIsSearchOpen(false); }}>
@@ -316,14 +367,16 @@ export default function HomePage() {
             </div>
             <select aria-label="Filtriraj po drÅ¾avi" value={selectedCountry} onChange={(event) => setSelectedCountry(event.target.value)} className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-950 dark:text-white">
               <option value="__all__">Sve države Balkana</option>
-              {[...new Set(locations.map((location) => location.country).filter(Boolean))].sort().map((country) => <option key={country} value={country}>{country}</option>)}
+              {['Srbija', 'Crna Gora', 'Bosna i Hercegovina', 'Hrvatska', 'Severna Makedonija', 'Albanija', 'Slovenija', 'Bugarska', 'Grčka', 'Rumunija'].map((country) => <option key={country} value={country}>{country}</option>)}
             </select>
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto border-t border-gray-100 px-4 py-2 dark:border-zinc-800">
-            {loading ? <p className="py-8 text-center text-sm text-gray-500">UÄitavanje destinacija...</p> : filteredLocations.length ? filteredLocations.map((location) => <Link key={location.id} href={`/locations/${location.slug}`} onClick={() => setIsSearchOpen(false)} className="flex items-center gap-3 border-b border-gray-100 py-3 last:border-0 dark:border-zinc-800">
+            {loading ? <p className="py-8 text-center text-sm text-gray-500">Učitavanje destinacija...</p> : locations.length ? locations.map((location) => <Link key={location.id} href={`/locations/${location.slug}`} onClick={() => setIsSearchOpen(false)} className="flex items-center gap-3 border-b border-gray-100 py-3 last:border-0 dark:border-zinc-800">
               <img src={location.cover_image || location.cover_url || location.image || 'https://placeholder.co/160x100'} alt="" className="h-14 w-20 shrink-0 rounded-xl object-cover" />
               <span className="min-w-0"><span className="block truncate text-sm font-semibold text-zinc-900 dark:text-white">{location.title}</span><span className="mt-1 block truncate text-xs text-gray-500 dark:text-zinc-400">{[location.region, location.country].filter(Boolean).join(', ')}</span></span>
-            </Link>) : <p className="py-8 text-center text-sm text-gray-500">Nema rezultata za unetu pretragu.</p>}
+            </Link>) : listError ? <p className="py-8 text-center text-sm text-red-600">{listError}</p> : <p className="py-8 text-center text-sm text-gray-500">Nema rezultata za unetu pretragu.</p>}
+            {!loading && listError && <button type="button" onClick={() => hasMore ? void loadMore() : setRetryCount((count) => count + 1)} className="my-3 w-full rounded-xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-700 dark:bg-red-950/30 dark:text-red-300">Pokušaj ponovo</button>}
+            {!loading && hasMore && <button type="button" onClick={() => void loadMore()} disabled={loadingMore} className="my-3 w-full rounded-xl bg-gray-100 px-4 py-3 text-sm font-semibold text-zinc-700 disabled:opacity-60 dark:bg-zinc-800 dark:text-zinc-200">{loadingMore ? 'Učitavanje...' : 'Učitaj još rezultata'}</button>}
           </div>
         </section>
       </div>}

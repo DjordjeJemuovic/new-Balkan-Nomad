@@ -91,7 +91,7 @@ export default function LocationDetailPage({ params }: { params: Promise<{ slug:
       if (!error && data) {
         setLocation(data);
         if (session?.user) {
-          const savedIds = await loadSavedLocationIds([{ id: data.id, slug: data.slug }], session.user.id);
+          const savedIds = await loadSavedLocationIds(session.user.id);
           setSaved(savedIds?.has(data.id) ?? window.localStorage.getItem(`balkan-nomad:saved:${slug}`) === 'true');
         } else {
           setSaved(window.localStorage.getItem(`balkan-nomad:saved:${slug}`) === 'true');

@@ -51,8 +51,8 @@ export default function ProfilePage() {
 
   const syncFavorites = useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession();
-    const savedIds = await loadSavedLocationIds(locations, session?.user.id ?? null);
-    const ids = savedIds ?? await loadSavedLocationIds(locations, null);
+    const ids = await loadSavedLocationIds(session?.user.id ?? null);
+    if (!ids) return;
     setFavoriteSlugs(locations.filter((location) => ids?.has(location.id)).map((location) => location.slug));
   }, [locations]);
 
@@ -82,8 +82,7 @@ export default function ProfilePage() {
         setAvatarUrl(profile?.avatar_url ?? (typeof metadata.avatar_url === 'string' ? metadata.avatar_url : ''));
       }
       const allLocations = (locationRows ?? []) as SavedLocation[];
-      const savedIds = await loadSavedLocationIds(allLocations, currentUser?.id ?? null);
-      const resolvedSavedIds = savedIds ?? await loadSavedLocationIds(allLocations, null);
+      const resolvedSavedIds = await loadSavedLocationIds(currentUser?.id ?? null);
       if (!active) return;
       setLocations(allLocations);
       setFavoriteSlugs(allLocations.filter((location) => resolvedSavedIds?.has(location.id)).map((location) => location.slug));
