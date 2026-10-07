@@ -57,11 +57,10 @@ export default function LocationDetailPage({ params }: { params: Promise<{ slug:
   }, [location]);
 
   const toggleSaved = () => {
-    setSaved((current) => {
-      const next = !current;
-      window.localStorage.setItem(`balkan-nomad:saved:${slug}`, String(next));
-      return next;
-    });
+    const next = !saved;
+    window.localStorage.setItem(`balkan-nomad:saved:${slug}`, String(next));
+    setSaved(next);
+    window.dispatchEvent(new Event('balkan-nomad:favorites-changed'));
   };
 
   useEffect(() => {
@@ -93,7 +92,7 @@ export default function LocationDetailPage({ params }: { params: Promise<{ slug:
 
   const images = [...new Set([location.cover_image, ...(Array.isArray(location.images) ? location.images : [])].filter((image): image is string => typeof image === 'string' && !!image))].slice(0, 6);
   const activities = groupActivityDescriptions(locationItems.length
-    ? locationItems.filter((item) => item.type === 'activity').map((item) => ({ title: item.title, description: item.description, season: Array.isArray(item.season) ? item.season.join(' · ') : undefined, difficulty: item.difficulty }))
+    ? locationItems.filter((item) => item.type === 'activity').map((item) => ({ title: item.title, image: item.image_url, description: item.description, season: Array.isArray(item.season) ? item.season.join(' · ') : undefined, difficulty: item.difficulty }))
     : getCards(location.activities));
   const nature = locationItems.length
     ? locationItems.filter((item) => item.type === 'attraction').map((item) => ({ title: item.title, image: item.image_url, description: item.description }))
@@ -101,10 +100,10 @@ export default function LocationDetailPage({ params }: { params: Promise<{ slug:
   const venueItems = locationItems.filter((item) => item.type === 'venue');
   const getVenueDescription = (item: any) => typeof item.description === 'string' ? item.description.replace(/^\[[^\]]+\]\s*/, '') : undefined;
   const stays = venueItems.length
-    ? venueItems.filter((item) => item.subtype === 'accommodation' || (typeof item.description === 'string' && item.description.startsWith('[') && !item.description.startsWith('[hrana]'))).map((item) => ({ title: item.title, description: getVenueDescription(item), kind: item.subtype === 'accommodation' ? undefined : item.subtype, distance: item.distance_km == null ? undefined : `${item.distance_km} km` }))
+    ? venueItems.filter((item) => item.subtype === 'accommodation' || (typeof item.description === 'string' && item.description.startsWith('[') && !item.description.startsWith('[hrana]'))).map((item) => ({ title: item.title, image: item.image_url, description: getVenueDescription(item), kind: item.subtype === 'accommodation' ? undefined : item.subtype, distance: item.distance_km == null ? undefined : `${item.distance_km} km` }))
     : getCards(location.accommodations ?? location.stays);
   const food = venueItems.length
-    ? venueItems.filter((item) => item.subtype === 'food' || (typeof item.description === 'string' && item.description.startsWith('[hrana]'))).map((item) => ({ title: item.title, description: getVenueDescription(item), kind: item.subtype === 'food' ? undefined : item.subtype, distance: item.distance_km == null ? undefined : `${item.distance_km} km` }))
+    ? venueItems.filter((item) => item.subtype === 'food' || (typeof item.description === 'string' && item.description.startsWith('[hrana]'))).map((item) => ({ title: item.title, image: item.image_url, description: getVenueDescription(item), kind: item.subtype === 'food' ? undefined : item.subtype, distance: item.distance_km == null ? undefined : `${item.distance_km} km` }))
     : getCards(location.food ?? location.restaurants);
   const description = location.description || 'Detaljan opis ove destinacije još nije dodat.';
   const shortDescription = location.short_description || description;
@@ -161,10 +160,10 @@ export default function LocationDetailPage({ params }: { params: Promise<{ slug:
       <div id="explore-panel" role="tabpanel" aria-labelledby={`tab-${selectedExploreTab.id}`} className="min-h-48">
         <div className="mb-4 flex items-center gap-2 text-sm font-medium text-zinc-600 dark:text-zinc-400">{selectedExploreTab.icon}<span>{selectedExploreTab.label}</span></div>
         {selectedExploreTab.cards.length ? <div className="divide-y divide-gray-200 dark:divide-white/[0.08]">{selectedExploreTab.cards.map((card, index) => <article key={`${card.title}-${index}`} className="py-6 first:pt-1 last:pb-1">
-          {card.image && <img src={card.image} alt={card.title} className="mb-5 max-h-72 w-full rounded-2xl object-cover" />}
           <h3 className="break-words text-lg font-semibold tracking-tight text-zinc-900 dark:text-white sm:text-xl">{card.title}</h3>
           {card.description && <p className="mt-3 break-words whitespace-pre-wrap text-[15px] leading-7 text-zinc-700 dark:text-zinc-300">{card.description}</p>}
           {!card.description && card.subtitle && <p className="mt-3 break-words whitespace-pre-wrap text-[15px] leading-7 text-zinc-700 dark:text-zinc-300">{card.subtitle}</p>}
+          {card.image && <img src={card.image} alt={card.title} loading="lazy" className="mt-4 max-h-72 w-full rounded-2xl object-cover" />}
           <div className="mt-4 flex flex-wrap gap-x-4 gap-y-2 text-xs font-medium text-emerald-700 dark:text-emerald-300">{[card.kind, card.season, card.difficulty, card.price, card.distance].filter(Boolean).map((label) => <span key={label}>{label}</span>)}</div>
         </article>)}</div> : <div className="py-8 text-sm text-zinc-500 dark:text-zinc-500">Ova kategorija još nema unetih stavki.</div>}
       </div>

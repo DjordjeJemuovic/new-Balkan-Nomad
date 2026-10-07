@@ -5,7 +5,7 @@ import { supabase } from '../../../../src/lib/supabase';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Save, Loader2, Upload, Image as ImageIcon } from 'lucide-react';
 import Link from 'next/link';
-import { buildLocationItems, emptyLocationItemFormData } from '../../../../src/lib/location-items';
+import { buildLocationItems, emptyLocationItemFormData, uploadLocationItemImages } from '../../../../src/lib/location-items';
 import { describeSupabaseError } from '../../../../src/lib/supabase-error';
 import LocationItemsEditor from '../../../../src/components/location-items-editor';
 
@@ -140,7 +140,8 @@ export default function NewLocationPage() {
       if (error) {
         setMessage({ text: `Greška pri upisu u bazu: ${describeSupabaseError(error)}`, isError: true });
       } else {
-        const items = buildLocationItems({ activities, attractions, accommodations, food })
+        const itemsForm = await uploadLocationItemImages({ activities, attractions, accommodations, food }, uploadImage);
+        const items = buildLocationItems(itemsForm)
           .map((item) => ({ ...item, location_id: location.id }));
         if (items.length) {
           const { data: savedItems, error: itemsError } = await supabase.from('location_items').insert(items).select('latitude,longitude');

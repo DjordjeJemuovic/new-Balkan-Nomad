@@ -5,7 +5,7 @@ import { supabase } from '../../../../../src/lib/supabase';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Image as ImageIcon, Loader2, Save, Upload, X } from 'lucide-react';
 import Link from 'next/link';
-import { buildLocationItems, emptyLocationItemFormData, formatLocationItems, type LocationItemFormData } from '../../../../../src/lib/location-items';
+import { buildLocationItems, emptyLocationItemFormData, formatLocationItems, uploadLocationItemImages, type LocationItemFormData } from '../../../../../src/lib/location-items';
 import { describeSupabaseError } from '../../../../../src/lib/supabase-error';
 import LocationItemsEditor from '../../../../../src/components/location-items-editor';
 
@@ -275,7 +275,8 @@ export default function EditLocationPage({ params }: { params: Promise<{ slug: s
         setMessage({ text: `Destinacija je izmenjena, ali preporuke nisu sačuvane: ${describeSupabaseError(deleteItemsError)}`, isError: true });
         return;
       }
-      const items = buildLocationItems({ activities, attractions, accommodations, food })
+      const itemsForm = await uploadLocationItemImages({ activities, attractions, accommodations, food }, uploadImage);
+      const items = buildLocationItems(itemsForm)
         .map((item) => ({ ...item, location_id: locationId }));
       if (items.length) {
         const { data: savedItems, error: itemsError } = await supabase.from('location_items').insert(items).select('latitude,longitude');

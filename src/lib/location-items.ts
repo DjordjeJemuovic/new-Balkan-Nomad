@@ -7,6 +7,7 @@ export type LocationItemFormValue = {
   description: string;
   subtype?: string;
   image_url?: string;
+  image_file?: File;
   season?: string[];
   difficulty?: string;
   price_level?: number;
@@ -28,10 +29,10 @@ export const emptyLocationItemFormData: LocationItemFormData = {
 
 export function buildLocationItems(form: LocationItemFormData) {
   const rows = [
-    ...form.activities.filter((item) => item.title.trim()).slice(0, 5).map((item) => ({ ...item, type: 'activity' as const })),
-    ...form.attractions.filter((item) => item.title.trim()).slice(0, 5).map((item) => ({ ...item, type: 'attraction' as const })),
-    ...form.accommodations.filter((item) => item.title.trim()).slice(0, 5).map((item) => ({ ...item, type: 'venue' as const, subtype: 'accommodation' })),
-    ...form.food.filter((item) => item.title.trim()).slice(0, 5).map((item) => ({ ...item, type: 'venue' as const, subtype: 'food' })),
+    ...form.activities.filter((item) => item.title.trim()).slice(0, 5).map(({ image_file, ...item }) => ({ ...item, type: 'activity' as const })),
+    ...form.attractions.filter((item) => item.title.trim()).slice(0, 5).map(({ image_file, ...item }) => ({ ...item, type: 'attraction' as const })),
+    ...form.accommodations.filter((item) => item.title.trim()).slice(0, 5).map(({ image_file, ...item }) => ({ ...item, type: 'venue' as const, subtype: 'accommodation' })),
+    ...form.food.filter((item) => item.title.trim()).slice(0, 5).map(({ image_file, ...item }) => ({ ...item, type: 'venue' as const, subtype: 'food' })),
   ];
   return rows.map((row, sort_order) => ({
     ...row,
@@ -41,6 +42,20 @@ export function buildLocationItems(form: LocationItemFormData) {
     longitude: parseOptionalCoordinate(row.longitude, 'Longitude', -180, 180),
     sort_order,
   }));
+}
+
+export async function uploadLocationItemImages(
+  form: LocationItemFormData,
+  uploadImage: (file: File, folder: string) => Promise<string>,
+): Promise<LocationItemFormData> {
+  const groups = Object.keys(form) as LocationItemGroup[];
+  const entries = await Promise.all(groups.map(async (group) => [
+    group,
+    await Promise.all(form[group].map(async (item) => item.image_file
+      ? { ...item, image_url: await uploadImage(item.image_file, 'items'), image_file: undefined }
+      : item)),
+  ] as const));
+  return Object.fromEntries(entries) as LocationItemFormData;
 }
 
 function asFormItem(row: Record<string, unknown>, description?: string): LocationItemFormValue | null {

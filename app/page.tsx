@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../src/lib/supabase';
 import Link from 'next/link';
-import { Home, Search, Heart, User, PlusCircle, MapPin, Compass, Trash2, Loader2, Globe, Pencil } from 'lucide-react';
+import { Home, Search, Heart, User, PlusCircle, MapPin, Compass, Trash2, Loader2, Globe, Pencil, X } from 'lucide-react';
 
 export default function HomePage() {
   const [user, setUser] = useState<any>(null);
@@ -11,10 +11,20 @@ export default function HomePage() {
   const [locations, setLocations] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [activeView, setActiveView] = useState<'home' | 'favorites'>('home');
+  const [favoriteSlugs, setFavoriteSlugs] = useState<string[]>([]);
 
   // Stanja za napredno filtriranje na klijentu
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCountry, setSelectedCountry] = useState('Sve države');
+
+  const refreshFavorites = useCallback(() => {
+    const favorites = locations
+      .filter((location) => window.localStorage.getItem(`balkan-nomad:saved:${location.slug}`) === 'true')
+      .map((location) => location.slug);
+    setFavoriteSlugs(favorites);
+  }, [locations]);
 
   useEffect(() => {
     async function checkUser() {
@@ -35,6 +45,9 @@ export default function HomePage() {
 
       if (!error && data) {
         setLocations(data);
+        setFavoriteSlugs(data
+          .filter((location) => window.localStorage.getItem(`balkan-nomad:saved:${location.slug}`) === 'true')
+          .map((location) => location.slug));
       }
       setLoading(false);
     }
@@ -42,6 +55,18 @@ export default function HomePage() {
     checkUser();
     fetchLocations();
   }, []);
+
+  useEffect(() => {
+    const syncFavorites = () => refreshFavorites();
+    window.addEventListener('balkan-nomad:favorites-changed', syncFavorites);
+    window.addEventListener('storage', syncFavorites);
+    window.addEventListener('focus', syncFavorites);
+    return () => {
+      window.removeEventListener('balkan-nomad:favorites-changed', syncFavorites);
+      window.removeEventListener('storage', syncFavorites);
+      window.removeEventListener('focus', syncFavorites);
+    };
+  }, [refreshFavorites]);
 
   const handleDelete = async (id: string, title: string) => {
     const confirmDelete = window.confirm(`Da li si siguran da želiš trajno da obrišeš lokaciju: "${title}"?`);
@@ -69,6 +94,9 @@ export default function HomePage() {
 
     return matchesSearch && matchesCountry;
   });
+  const visibleLocations = activeView === 'favorites'
+    ? locations.filter((location) => favoriteSlugs.includes(location.slug))
+    : filteredLocations;
 
   return (
     <div className="mx-auto min-h-screen w-full max-w-xl bg-white pb-28 shadow-sm transition-colors duration-200 dark:bg-zinc-950">
@@ -155,22 +183,22 @@ export default function HomePage() {
         <div className="flex items-center justify-between px-2 mb-2">
           <h3 className="text-sm font-black text-zinc-800 dark:text-zinc-200 tracking-wide uppercase flex items-center gap-1.5">
             <Compass className="w-4 h-4 text-[#006D44]" /> 
-            {selectedCountry === 'Sve države' ? 'Preporučene destinacije' : `Destinacije — ${selectedCountry}`}
+            {activeView === 'favorites' ? 'Omiljene lokacije' : selectedCountry === 'Sve države' ? 'Preporučene destinacije' : `Destinacije — ${selectedCountry}`}
           </h3>
-          <span className="text-xs text-gray-400 font-medium">{filteredLocations.length} nađeno</span>
+          <span className="text-xs text-gray-400 font-medium">{visibleLocations.length} {activeView === 'favorites' ? 'sačuvano' : 'nađeno'}</span>
         </div>
 
         {loading ? (
           <div className="py-12 text-center text-sm text-gray-400 font-medium animate-pulse">
             Učitavanje destinacija sa servera...
           </div>
-        ) : filteredLocations.length === 0 ? (
+        ) : visibleLocations.length === 0 ? (
           <div className="py-12 text-center text-sm text-gray-400 bg-gray-50 dark:bg-zinc-900/40 rounded-2xl border border-dashed border-gray-200 dark:border-zinc-800 px-6">
-            Nema pronađenih lokacija za zadate filtere.
+            {activeView === 'favorites' ? 'Još nemaš sačuvanih omiljenih lokacija. Otvori destinaciju i dodirni srce da je sačuvaš.' : 'Nema pronađenih lokacija za zadate filtere.'}
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-5">
-            {filteredLocations.map((loc) => {
+            {visibleLocations.map((loc) => {
               // Ispisujemo objekat u konzolu da na licu mesta vidiš šta baza tačno vraća
               console.log("Podaci iz baze za lokaciju:", loc.title, loc);
 
@@ -253,13 +281,41 @@ export default function HomePage() {
         )}
       </div>
 
+      {isSearchOpen && <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50 px-3 pb-3 pt-10 backdrop-blur-sm sm:items-center sm:p-5" onMouseDown={(event) => { if (event.target === event.currentTarget) setIsSearchOpen(false); }}>
+        <section role="dialog" aria-modal="true" aria-labelledby="search-dialog-title" className="flex max-h-[85vh] w-full max-w-xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl dark:bg-zinc-900">
+          <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-zinc-800">
+            <div>
+              <h2 id="search-dialog-title" className="text-base font-bold text-zinc-900 dark:text-white">Pretraži destinacije</h2>
+              <p className="mt-1 text-xs text-gray-500 dark:text-zinc-400">Pretraži po nazivu, regiji ili opisu.</p>
+            </div>
+            <button type="button" onClick={() => setIsSearchOpen(false)} aria-label="Zatvori pretragu" className="rounded-full p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-zinc-800"><X className="h-5 w-5" /></button>
+          </div>
+          <div className="space-y-3 p-4">
+            <div className="relative">
+              <Search className="absolute left-4 top-3.5 h-5 w-5 text-gray-400" />
+              <input autoFocus type="search" placeholder="Naziv, regija ili opis..." value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} className="w-full rounded-2xl border border-gray-200 bg-gray-50 py-3.5 pl-12 pr-4 text-sm text-zinc-950 focus:outline-none focus:ring-2 focus:ring-emerald-700 dark:border-zinc-700 dark:bg-zinc-950 dark:text-white" />
+            </div>
+            <select aria-label="Filtriraj po državi" value={selectedCountry} onChange={(event) => setSelectedCountry(event.target.value)} className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-950 dark:text-white">
+              <option value="Sve države">Sve države Balkana</option>
+              {[...new Set(locations.map((location) => location.country).filter(Boolean))].sort().map((country) => <option key={country} value={country}>{country}</option>)}
+            </select>
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto border-t border-gray-100 px-4 py-2 dark:border-zinc-800">
+            {loading ? <p className="py-8 text-center text-sm text-gray-500">Učitavanje destinacija...</p> : filteredLocations.length ? filteredLocations.map((location) => <Link key={location.id} href={`/locations/${location.slug}`} onClick={() => setIsSearchOpen(false)} className="flex items-center gap-3 border-b border-gray-100 py-3 last:border-0 dark:border-zinc-800">
+              <img src={location.cover_image || location.cover_url || location.image || 'https://placeholder.co/160x100'} alt="" className="h-14 w-20 shrink-0 rounded-xl object-cover" />
+              <span className="min-w-0"><span className="block truncate text-sm font-semibold text-zinc-900 dark:text-white">{location.title}</span><span className="mt-1 block truncate text-xs text-gray-500 dark:text-zinc-400">{[location.region, location.country].filter(Boolean).join(', ')}</span></span>
+            </Link>) : <p className="py-8 text-center text-sm text-gray-500">Nema rezultata za unetu pretragu.</p>}
+          </div>
+        </section>
+      </div>}
+
       {/* FIKSNI DONJI MENI */}
       <div className="fixed inset-x-0 bottom-0 z-50 mx-auto flex w-full max-w-xl items-center justify-between gap-1 border-t border-gray-100 bg-white/95 px-2 py-3 backdrop-blur-md dark:border-zinc-800 dark:bg-zinc-900/95 sm:px-6">
-        <button className="flex min-w-0 flex-1 flex-col items-center gap-1 text-[#006D44] dark:text-emerald-500">
+        <button onClick={() => setActiveView('home')} className={`flex min-w-0 flex-1 flex-col items-center gap-1 ${activeView === 'home' ? 'text-[#006D44] dark:text-emerald-500' : 'text-gray-400'}`}>
           <Home className="w-5 h-5" />
           <span className="text-[10px] font-bold">Početna</span>
         </button>
-        <button className="flex min-w-0 flex-1 flex-col items-center gap-1 text-gray-400">
+        <button onClick={() => setIsSearchOpen(true)} className="flex min-w-0 flex-1 flex-col items-center gap-1 text-gray-400 hover:text-[#006D44]">
           <Search className="w-5 h-5" />
           <span className="text-[10px] font-medium">Pretraga</span>
         </button>
@@ -269,7 +325,7 @@ export default function HomePage() {
             <span className="text-[10px] font-bold text-[#006D44]">Dodaj lokaciju</span>
           </Link>
         )}
-        <button className="flex min-w-0 flex-1 flex-col items-center gap-1 text-gray-400"><Heart className="w-5 h-5" /><span className="text-[10px] font-medium">Omiljeno</span></button>
+        <button onClick={() => { refreshFavorites(); setActiveView('favorites'); }} className={`relative flex min-w-0 flex-1 flex-col items-center gap-1 ${activeView === 'favorites' ? 'text-rose-500' : 'text-gray-400'}`}><Heart className="w-5 h-5" /><span className="text-[10px] font-medium">Omiljeno</span>{favoriteSlugs.length > 0 && <span className="absolute -right-1 -top-1 rounded-full bg-rose-500 px-1.5 text-[9px] font-bold text-white">{favoriteSlugs.length}</span>}</button>
         <button className="flex min-w-0 flex-1 flex-col items-center gap-1 text-gray-400"><User className="w-5 h-5" /><span className="text-[10px] font-medium">Profil</span></button>
       </div>
 

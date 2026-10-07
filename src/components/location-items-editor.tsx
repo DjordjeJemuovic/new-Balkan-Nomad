@@ -46,6 +46,12 @@ export default function LocationItemsEditor({ value, onChange }: Props) {
           </div>
           <input type="text" required value={item.title} onChange={(event) => updateItem(section.key, index, { title: event.target.value })} placeholder="Naslov" className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm dark:border-zinc-800 dark:bg-zinc-950 dark:text-white" />
           <textarea required rows={3} value={item.description} onChange={(event) => updateItem(section.key, index, { description: event.target.value })} placeholder="Opis" className="w-full resize-y rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm leading-6 dark:border-zinc-800 dark:bg-zinc-950 dark:text-white" />
+          <label className="block space-y-1.5">
+            <span className="text-xs font-medium text-gray-600 dark:text-zinc-400">Fotografija</span>
+            <input type="file" accept="image/*" onChange={(event) => updateItem(section.key, index, { image_file: event.target.files?.[0] })} className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-emerald-700 file:px-3 file:py-2 file:text-xs file:font-semibold file:text-white dark:border-zinc-800 dark:bg-zinc-950 dark:text-white" />
+            {item.image_file && <span className="block text-xs text-gray-500 dark:text-zinc-400">Izabrano: {item.image_file.name}</span>}
+            {!item.image_file && item.image_url && <img src={item.image_url} alt={`Trenutna fotografija: ${item.title}`} className="mt-2 h-24 w-32 rounded-lg object-cover" />}
+          </label>
         </div>)}
 
         {items.length < 5 && <button type="button" onClick={() => addItem(section.key)} className="rounded-xl border border-dashed border-gray-300 px-4 py-3 text-sm font-medium text-[#006D44] hover:bg-emerald-50 dark:border-zinc-700 dark:hover:bg-emerald-950/20">+ Dodaj {section.singular}</button>}
