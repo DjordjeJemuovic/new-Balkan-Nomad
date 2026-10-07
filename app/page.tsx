@@ -3,10 +3,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../src/lib/supabase';
 import Link from 'next/link';
-import { Search, MapPin, Compass, Trash2, Loader2, Globe, Pencil, X } from 'lucide-react';
+import { Search, MapPin, Compass, Trash2, Loader2, Globe, Pencil, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { loadSavedLocationIds } from '../src/lib/saved-locations';
 
-const PAGE_SIZE = 5;
+const INITIAL_BATCH_SIZE = 5;
+const PAGE_SIZE = 10;
 
 export default function HomePage() {
   const [user, setUser] = useState<any>(null);
@@ -19,7 +20,10 @@ export default function HomePage() {
   const [listError, setListError] = useState('');
   const [retryCount, setRetryCount] = useState(0);
   const [offset, setOffset] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
   const listEndRef = useRef<HTMLDivElement | null>(null);
+  const listTopRef = useRef<HTMLDivElement | null>(null);
   const requestIdRef = useRef(0);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -66,18 +70,21 @@ export default function HomePage() {
       setListError('');
       setLocations([]);
       setOffset(0);
+      setCurrentPage(1);
       setHasMore(false);
-      let query = supabase.from('locations').select('*').order('created_at', { ascending: false });
+      setTotalCount(0);
+      let query = supabase.from('locations').select('*', { count: 'exact' }).order('created_at', { ascending: false }).order('id', { ascending: true });
       if (selectedCountry !== '__all__') query = query.eq('country', selectedCountry);
       const term = searchQuery.trim().replace(/[^\p{L}\p{N}\s-]/gu, '').replace(/\s+/g, ' ');
       if (term) query = query.or(`title.ilike.%${term}%,region.ilike.%${term}%,short_description.ilike.%${term}%`);
-      const { data, error } = await query.range(0, PAGE_SIZE - 1);
+      const { data, count, error } = await query.range(0, INITIAL_BATCH_SIZE - 1);
       if (requestId !== requestIdRef.current) return;
       if (error) setListError('Destinacije trenutno nisu mogle da se učitaju. Pokušaj ponovo.');
       else {
         setLocations(data ?? []);
         setOffset(data?.length ?? 0);
-        setHasMore((data?.length ?? 0) === PAGE_SIZE);
+        setTotalCount(count ?? 0);
+        setHasMore((data?.length ?? 0) === INITIAL_BATCH_SIZE && (count ?? 0) > (data?.length ?? 0) && (data?.length ?? 0) < PAGE_SIZE);
       }
       setLoading(false);
     }, searchQuery.trim() ? 250 : 0);
@@ -89,20 +96,50 @@ export default function HomePage() {
     const requestId = requestIdRef.current;
     setLoadingMore(true);
     setListError('');
-    let query = supabase.from('locations').select('*').order('created_at', { ascending: false });
+    let query = supabase.from('locations').select('*').order('created_at', { ascending: false }).order('id', { ascending: true });
     if (selectedCountry !== '__all__') query = query.eq('country', selectedCountry);
     const term = searchQuery.trim().replace(/[^\p{L}\p{N}\s-]/gu, '').replace(/\s+/g, ' ');
     if (term) query = query.or(`title.ilike.%${term}%,region.ilike.%${term}%,short_description.ilike.%${term}%`);
-    const { data, error } = await query.range(offset, offset + PAGE_SIZE - 1);
+    const { data, error } = await query.range(offset, offset + INITIAL_BATCH_SIZE - 1);
     if (requestId !== requestIdRef.current) return;
     if (error) setListError('Još destinacija nije moglo da se učita. Pokušaj ponovo.');
     else {
       setLocations((current) => [...current, ...(data ?? []).filter((row) => !current.some((item) => item.id === row.id))]);
       setOffset((current) => current + (data?.length ?? 0));
-      setHasMore((data?.length ?? 0) === PAGE_SIZE);
+      const nextOffset = offset + (data?.length ?? 0);
+      setHasMore((data?.length ?? 0) === INITIAL_BATCH_SIZE && nextOffset < currentPage * PAGE_SIZE && nextOffset < totalCount);
     }
     setLoadingMore(false);
-  }, [loading, loadingMore, hasMore, selectedCountry, searchQuery, offset]);
+  }, [loading, loadingMore, hasMore, selectedCountry, searchQuery, offset, currentPage, totalCount, locations.length]);
+
+  const goToPage = useCallback(async (page: number) => {
+    const pageCount = Math.ceil(totalCount / PAGE_SIZE);
+    if (page < 1 || page > pageCount || page === currentPage || loading || loadingMore) return;
+    const requestId = ++requestIdRef.current;
+    const pageOffset = (page - 1) * PAGE_SIZE;
+    setCurrentPage(page);
+    setLoading(true);
+    setLoadingMore(false);
+    setListError('');
+    setLocations([]);
+    setOffset(pageOffset);
+    setHasMore(false);
+
+    let query = supabase.from('locations').select('*').order('created_at', { ascending: false }).order('id', { ascending: true });
+    if (selectedCountry !== '__all__') query = query.eq('country', selectedCountry);
+    const term = searchQuery.trim().replace(/[^\p{L}\p{N}\s-]/gu, '').replace(/\s+/g, ' ');
+    if (term) query = query.or(`title.ilike.%${term}%,region.ilike.%${term}%,short_description.ilike.%${term}%`);
+    const { data, error } = await query.range(pageOffset, pageOffset + INITIAL_BATCH_SIZE - 1);
+    if (requestId !== requestIdRef.current) return;
+    if (error) setListError('Destinacije trenutno nisu mogle da se učitaju. Pokušaj ponovo.');
+    else {
+      setLocations(data ?? []);
+      setOffset(pageOffset + (data?.length ?? 0));
+      setHasMore((data?.length ?? 0) === INITIAL_BATCH_SIZE && pageOffset + (data?.length ?? 0) < page * PAGE_SIZE && pageOffset + (data?.length ?? 0) < totalCount);
+      window.setTimeout(() => listTopRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0);
+    }
+    setLoading(false);
+  }, [totalCount, currentPage, loading, loadingMore, selectedCountry, searchQuery]);
 
   useEffect(() => {
     const target = listEndRef.current;
@@ -155,6 +192,7 @@ export default function HomePage() {
     } else {
       setLocations((current) => current.filter(loc => loc.id !== id));
       setFavoriteLocations((current) => current.filter((loc) => loc.id !== id));
+      setTotalCount((count) => Math.max(0, count - 1));
     }
     setDeletingId(null);
   };
@@ -162,6 +200,19 @@ export default function HomePage() {
   const visibleLocations = activeView === 'favorites'
     ? favoriteLocations
     : locations;
+  const pageCount = Math.ceil(totalCount / PAGE_SIZE);
+  const showPagination = pageCount > 1 && (!hasMore || locations.length >= PAGE_SIZE);
+  const paginationControls = showPagination ? (
+    <div className="flex items-center justify-center gap-5 py-4" aria-label="Stranice destinacija">
+      <button type="button" onClick={() => void goToPage(currentPage - 1)} disabled={currentPage <= 1 || loading} aria-label="Prethodna stranica" className="rounded-full border border-gray-200 p-2 text-zinc-700 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800">
+        <ChevronLeft className="h-5 w-5" />
+      </button>
+      <span aria-live="polite" className="min-w-14 text-center text-sm font-semibold text-zinc-700 dark:text-zinc-200">{currentPage} / {pageCount}</span>
+      <button type="button" onClick={() => void goToPage(currentPage + 1)} disabled={currentPage >= pageCount || loading} aria-label="Sledeća stranica" className="rounded-full border border-gray-200 p-2 text-zinc-700 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800">
+        <ChevronRight className="h-5 w-5" />
+      </button>
+    </div>
+  ) : null;
 
   return (
     <div className="mx-auto min-h-screen w-full max-w-xl bg-white pb-28 shadow-sm transition-colors duration-200 dark:bg-zinc-950">
@@ -244,7 +295,7 @@ export default function HomePage() {
       </div>
 
       {/* KARTICE SA LOKACIJAMA */}
-      <div className="px-4 space-y-4">
+    <div ref={listTopRef} className="scroll-mt-4 px-4 space-y-4">
         <div className="flex items-center justify-between px-2 mb-2">
           <h3 className="text-sm font-black text-zinc-800 dark:text-zinc-200 tracking-wide uppercase flex items-center gap-1.5">
             <Compass className="w-4 h-4 text-[#006D44]" />
@@ -341,14 +392,15 @@ export default function HomePage() {
             })}
           </div>
         )}
-        {activeView === 'home' && !loading && (
+      {activeView === 'home' && !loading && (
           <>
             {listError && <div className="py-3 text-center text-sm text-red-600">{listError} <button type="button" onClick={() => hasMore ? void loadMore() : setRetryCount((count) => count + 1)} className="font-semibold underline">Pokušaj ponovo</button></div>}
             {loadingMore && <div className="flex items-center justify-center gap-2 py-5 text-sm text-gray-500"><Loader2 className="h-4 w-4 animate-spin" /> Učitavanje još destinacija...</div>}
             {hasMore && <div ref={listEndRef} aria-hidden="true" className="h-2" />}
-            {!hasMore && locations.length > 0 && <p className="py-4 text-center text-xs text-gray-400">Prikazane su sve destinacije za izabrane filtere.</p>}
+            {!hasMore && currentPage * PAGE_SIZE >= totalCount && locations.length > 0 && <p className="py-4 text-center text-xs text-gray-400">Prikazane su sve destinacije za izabrane filtere.</p>}
           </>
-        )}
+      )}
+      {activeView === 'home' && !loading && paginationControls}
       </div>
 
       {isSearchOpen && <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/50 px-3 pb-3 pt-10 backdrop-blur-sm sm:items-center sm:p-5" onMouseDown={(event) => { if (event.target === event.currentTarget) setIsSearchOpen(false); }}>
@@ -377,6 +429,7 @@ export default function HomePage() {
             </Link>) : listError ? <p className="py-8 text-center text-sm text-red-600">{listError}</p> : <p className="py-8 text-center text-sm text-gray-500">Nema rezultata za unetu pretragu.</p>}
             {!loading && listError && <button type="button" onClick={() => hasMore ? void loadMore() : setRetryCount((count) => count + 1)} className="my-3 w-full rounded-xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-700 dark:bg-red-950/30 dark:text-red-300">Pokušaj ponovo</button>}
             {!loading && hasMore && <button type="button" onClick={() => void loadMore()} disabled={loadingMore} className="my-3 w-full rounded-xl bg-gray-100 px-4 py-3 text-sm font-semibold text-zinc-700 disabled:opacity-60 dark:bg-zinc-800 dark:text-zinc-200">{loadingMore ? 'Učitavanje...' : 'Učitaj još rezultata'}</button>}
+            {paginationControls}
           </div>
         </section>
       </div>}
