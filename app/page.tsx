@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../src/lib/supabase';
 import Link from 'next/link';
 import { Search, MapPin, Compass, Trash2, Loader2, Globe, Pencil, X } from 'lucide-react';
+import { loadSavedLocationIds } from '../src/lib/saved-locations';
 
 export default function HomePage() {
   const [user, setUser] = useState<any>(null);
@@ -19,11 +20,11 @@ export default function HomePage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCountry, setSelectedCountry] = useState('__all__');
 
-  const refreshFavorites = useCallback(() => {
-    const favorites = locations
-      .filter((location) => window.localStorage.getItem(`balkan-nomad:saved:${location.slug}`) === 'true')
-      .map((location) => location.slug);
-    setFavoriteSlugs(favorites);
+  const refreshFavorites = useCallback(async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    const savedIds = await loadSavedLocationIds(locations, session?.user.id ?? null);
+    const ids = savedIds ?? await loadSavedLocationIds(locations, null);
+    setFavoriteSlugs(locations.filter((location) => ids?.has(location.id)).map((location) => location.slug));
   }, [locations]);
 
   useEffect(() => {
@@ -45,9 +46,6 @@ export default function HomePage() {
 
       if (!error && data) {
         setLocations(data);
-        setFavoriteSlugs(data
-          .filter((location) => window.localStorage.getItem(`balkan-nomad:saved:${location.slug}`) === 'true')
-          .map((location) => location.slug));
       }
       setLoading(false);
     }
@@ -57,9 +55,13 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => {
-    const syncFavorites = () => refreshFavorites();
+    if (locations.length) void refreshFavorites();
+  }, [locations, user, refreshFavorites]);
+
+  useEffect(() => {
+    const syncFavorites = () => { void refreshFavorites(); };
     const showHome = () => setActiveView('home');
-    const showFavorites = () => { refreshFavorites(); setActiveView('favorites'); };
+    const showFavorites = () => { void refreshFavorites(); setActiveView('favorites'); };
     const showSearch = () => setIsSearchOpen(true);
     if (window.sessionStorage.getItem('balkan-nomad:open-favorites') === 'true') {
       window.sessionStorage.removeItem('balkan-nomad:open-favorites');
@@ -151,7 +153,7 @@ export default function HomePage() {
             className="absolute inset-0 w-full h-full object-cover opacity-80"
           />
           <div className="relative z-20 text-white space-y-1">
-            <h2 className="text-xl font-black leading-tight tracking-tight">KREÄ†E BALKANSKA AVANTURA</h2>
+            <h2 className="text-xl font-black leading-tight tracking-tight">KREĆE BALKANSKA AVANTURA</h2>
             <p className="text-xs text-zinc-300">Sve rute, skriveni kutkovi i divljina na jednom mestu.</p>
           </div>
         </div>
@@ -162,7 +164,7 @@ export default function HomePage() {
             <Search className="absolute left-4 top-3.5 h-5 w-5 text-gray-400" />
             <input
               type="text"
-              placeholder="PretraÅ¾i naziv, regiju..."
+              placeholder="Unesi naziv, regiju ili opis..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-12 pr-4 py-3.5 bg-gray-50 dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 rounded-2xl text-sm focus:outline-none text-zinc-950 dark:text-white font-medium"
@@ -310,7 +312,7 @@ export default function HomePage() {
           <div className="space-y-3 p-4">
             <div className="relative">
               <Search className="absolute left-4 top-3.5 h-5 w-5 text-gray-400" />
-              <input autoFocus type="search" placeholder="Naziv, regija ili opis..." value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} className="w-full rounded-2xl border border-gray-200 bg-gray-50 py-3.5 pl-12 pr-4 text-sm text-zinc-950 focus:outline-none focus:ring-2 focus:ring-emerald-700 dark:border-zinc-700 dark:bg-zinc-950 dark:text-white" />
+              <input autoFocus type="search" placeholder="Unesi naziv, regiju ili opis..." value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} className="w-full rounded-2xl border border-gray-200 bg-gray-50 py-3.5 pl-12 pr-4 text-sm text-zinc-950 focus:outline-none focus:ring-2 focus:ring-emerald-700 dark:border-zinc-700 dark:bg-zinc-950 dark:text-white" />
             </div>
             <select aria-label="Filtriraj po drÅ¾avi" value={selectedCountry} onChange={(event) => setSelectedCountry(event.target.value)} className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-950 dark:text-white">
               <option value="__all__">Sve države Balkana</option>

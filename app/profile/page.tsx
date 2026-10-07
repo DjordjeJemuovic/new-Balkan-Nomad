@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Camera, Check, Heart, Loader2, LogIn, Save, UserRound } from 'lucide-react';
 import { supabase } from '../../src/lib/supabase';
+import { loadSavedLocationIds } from '../../src/lib/saved-locations';
 
 const INTEREST_OPTIONS = [
   'Priroda i planinarenje',
@@ -48,11 +49,11 @@ export default function ProfilePage() {
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState('');
 
-  const syncFavorites = useCallback(() => {
-    const slugs = locations
-      .filter((location) => window.localStorage.getItem(`balkan-nomad:saved:${location.slug}`) === 'true')
-      .map((location) => location.slug);
-    setFavoriteSlugs(slugs);
+  const syncFavorites = useCallback(async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    const savedIds = await loadSavedLocationIds(locations, session?.user.id ?? null);
+    const ids = savedIds ?? await loadSavedLocationIds(locations, null);
+    setFavoriteSlugs(locations.filter((location) => ids?.has(location.id)).map((location) => location.slug));
   }, [locations]);
 
   useEffect(() => {
@@ -67,18 +68,25 @@ export default function ProfilePage() {
       const currentUser = session?.user as ProfileUser | undefined;
       if (currentUser) {
         const metadata = currentUser.user_metadata ?? {};
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('first_name, last_name, birth_year, interests, avatar_url')
+          .eq('id', currentUser.id)
+          .maybeSingle();
+        if (!active) return;
         setUser(currentUser);
-        setFirstName(typeof metadata.first_name === 'string' ? metadata.first_name : '');
-        setLastName(typeof metadata.last_name === 'string' ? metadata.last_name : '');
-        setBirthYear(typeof metadata.birth_year === 'number' || typeof metadata.birth_year === 'string' ? String(metadata.birth_year) : '');
-        setInterests(Array.isArray(metadata.interests) ? metadata.interests.filter((value): value is string => typeof value === 'string') : []);
-        setAvatarUrl(typeof metadata.avatar_url === 'string' ? metadata.avatar_url : '');
+        setFirstName(profile?.first_name ?? (typeof metadata.first_name === 'string' ? metadata.first_name : ''));
+        setLastName(profile?.last_name ?? (typeof metadata.last_name === 'string' ? metadata.last_name : ''));
+        setBirthYear(profile?.birth_year != null ? String(profile.birth_year) : (typeof metadata.birth_year === 'number' || typeof metadata.birth_year === 'string' ? String(metadata.birth_year) : ''));
+        setInterests(Array.isArray(profile?.interests) ? profile.interests : (Array.isArray(metadata.interests) ? metadata.interests.filter((value): value is string => typeof value === 'string') : []));
+        setAvatarUrl(profile?.avatar_url ?? (typeof metadata.avatar_url === 'string' ? metadata.avatar_url : ''));
       }
       const allLocations = (locationRows ?? []) as SavedLocation[];
+      const savedIds = await loadSavedLocationIds(allLocations, currentUser?.id ?? null);
+      const resolvedSavedIds = savedIds ?? await loadSavedLocationIds(allLocations, null);
+      if (!active) return;
       setLocations(allLocations);
-      setFavoriteSlugs(allLocations
-        .filter((location) => window.localStorage.getItem(`balkan-nomad:saved:${location.slug}`) === 'true')
-        .map((location) => location.slug));
+      setFavoriteSlugs(allLocations.filter((location) => resolvedSavedIds?.has(location.id)).map((location) => location.slug));
       setLoading(false);
     }
     void loadProfile();
@@ -144,6 +152,14 @@ export default function ProfilePage() {
         },
       });
       if (error) throw error;
+      const { error: profileError } = await supabase.from('profiles').update({
+        first_name: firstName.trim(),
+        last_name: lastName.trim(),
+        birth_year: Number(birthYear),
+        interests,
+        avatar_url: nextAvatarUrl || null,
+      }).eq('id', user.id);
+      if (profileError) throw profileError;
       if (data.user) setUser(data.user as ProfileUser);
       setAvatarUrl(nextAvatarUrl);
       setAvatarFile(null);

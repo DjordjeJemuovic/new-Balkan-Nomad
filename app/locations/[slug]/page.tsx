@@ -5,6 +5,7 @@ import { supabase } from '../../../src/lib/supabase';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, CalendarDays, Clock3, Compass, Heart, MapPin, Mountain, Pencil, Route, ShieldAlert, ParkingCircle, PawPrint, Baby, Utensils, BedDouble, Trees, Plus, Check } from 'lucide-react';
+import { loadSavedLocationIds } from '../../../src/lib/saved-locations';
 
 type ExploreCard = { title: string; description?: string; subtitle?: string; image?: string; kind?: string; price?: string; distance?: string; difficulty?: string; season?: string };
 type ExploreTab = { id: string; label: string; icon: ReactNode; cards: ExploreCard[]; available?: boolean };
@@ -34,13 +35,11 @@ export default function LocationDetailPage({ params }: { params: Promise<{ slug:
   const [loading, setLoading] = useState(true);
   const [role, setRole] = useState('user');
   const [saved, setSaved] = useState(false);
+  const [savingSaved, setSavingSaved] = useState(false);
+  const [favoriteMessage, setFavoriteMessage] = useState('');
   const [expanded, setExpanded] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
   const [activeExploreTab, setActiveExploreTab] = useState('activities');
-
-  useEffect(() => {
-    setSaved(window.localStorage.getItem(`balkan-nomad:saved:${slug}`) === 'true');
-  }, [slug]);
 
   useEffect(() => {
     const sections = ['overview', 'explore', 'practical']
@@ -56,11 +55,27 @@ export default function LocationDetailPage({ params }: { params: Promise<{ slug:
     return () => observer.disconnect();
   }, [location]);
 
-  const toggleSaved = () => {
+  const toggleSaved = async () => {
     const next = !saved;
-    window.localStorage.setItem(`balkan-nomad:saved:${slug}`, String(next));
-    setSaved(next);
-    window.dispatchEvent(new Event('balkan-nomad:favorites-changed'));
+    setSavingSaved(true);
+    setFavoriteMessage('');
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user && location?.id) {
+        const result = next
+          ? await supabase.from('user_saved_locations').insert({ user_id: session.user.id, location_id: location.id })
+          : await supabase.from('user_saved_locations').delete().eq('user_id', session.user.id).eq('location_id', location.id);
+        if (result.error) throw result.error;
+      } else {
+        window.localStorage.setItem(`balkan-nomad:saved:${slug}`, String(next));
+      }
+      setSaved(next);
+      window.dispatchEvent(new Event('balkan-nomad:favorites-changed'));
+    } catch {
+      setFavoriteMessage('Destinacija nije sačuvana. Pokušaj ponovo.');
+    } finally {
+      setSavingSaved(false);
+    }
   };
 
   useEffect(() => {
@@ -75,6 +90,12 @@ export default function LocationDetailPage({ params }: { params: Promise<{ slug:
       }
       if (!error && data) {
         setLocation(data);
+        if (session?.user) {
+          const savedIds = await loadSavedLocationIds([{ id: data.id, slug: data.slug }], session.user.id);
+          setSaved(savedIds?.has(data.id) ?? window.localStorage.getItem(`balkan-nomad:saved:${slug}`) === 'true');
+        } else {
+          setSaved(window.localStorage.getItem(`balkan-nomad:saved:${slug}`) === 'true');
+        }
         const { data: items, error: itemsError } = await supabase
           .from('location_items')
           .select('*')
@@ -178,8 +199,9 @@ export default function LocationDetailPage({ params }: { params: Promise<{ slug:
       <div className="mb-5 flex flex-wrap gap-2">{[[Baby,'Deca',location.child_friendly], [PawPrint,'Ljubimci',location.pet_allowed], [ParkingCircle,'Parking',location.parking_available]].map(([Icon, label, yes]: any) => <span key={label} className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs ${yes ? 'border-sky-400/20 bg-sky-400/10 text-sky-700 dark:text-sky-200' : 'border-gray-200 dark:border-white/[0.06] bg-gray-100 dark:bg-white/[0.03] text-zinc-600'}`}><Icon className="h-3.5 w-3.5" />{label}{yes && <Check className="h-3 w-3" />}</span>)}</div>
     </section>
 
-    <div className="fixed inset-x-0 bottom-[calc(4.25rem+env(safe-area-inset-bottom))] z-40 mx-auto flex max-w-3xl gap-3 border-t border-gray-200 bg-white/95 px-5 py-3 backdrop-blur-xl dark:border-white/[0.08] dark:bg-[#151915]/95 md:px-8">
-      <button onClick={toggleSaved} className={`flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-semibold ${saved ? 'border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300' : 'border-gray-200 bg-gray-50 text-zinc-900 dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-100'}`}><Heart className={`h-4 w-4 ${saved ? 'fill-current' : ''}`} />{saved ? 'Sačuvano' : 'Sačuvaj'}</button>
+    <div className="fixed inset-x-0 bottom-[calc(4.25rem+env(safe-area-inset-bottom))] z-40 mx-auto flex max-w-3xl flex-col gap-2 border-t border-gray-200 bg-white/95 px-5 py-3 backdrop-blur-xl dark:border-white/[0.08] dark:bg-[#151915]/95 md:px-8">
+      {favoriteMessage && <p role="alert" className="text-center text-xs text-red-600 dark:text-red-400">{favoriteMessage}</p>}
+      <button onClick={toggleSaved} disabled={savingSaved} className={`flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-semibold disabled:opacity-60 ${saved ? 'border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300' : 'border-gray-200 bg-gray-50 text-zinc-900 dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-100'}`}><Heart className={`h-4 w-4 ${saved ? 'fill-current' : ''}`} />{saved ? 'Sačuvano' : 'Sačuvaj'}</button>
     </div>
   </main>;
 }

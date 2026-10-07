@@ -22,10 +22,10 @@ export default function AuthPage() {
   const [birthYear, setBirthYear] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [interests, setInterests] = useState<string[]>([]);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState('');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
-  const [showUnavailablePopup, setShowUnavailablePopup] = useState(false);
   const router = useRouter();
 
   const handleAuth = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -34,6 +34,15 @@ export default function AuthPage() {
 
     if (isRegister) {
       const normalizedEmail = email.trim();
+      const parsedBirthYear = Number(birthYear);
+      if (!firstName.trim() || !lastName.trim()) {
+        setMessage('Unesi ime i prezime.');
+        return;
+      }
+      if (!Number.isInteger(parsedBirthYear) || parsedBirthYear < 1900 || parsedBirthYear > new Date().getFullYear()) {
+        setMessage('Unesi ispravnu godinu rođenja.');
+        return;
+      }
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
         setMessage('Unesi ispravnu email adresu koja sadrži @ i tačku.');
         return;
@@ -46,42 +55,91 @@ export default function AuthPage() {
         setMessage('Lozinke se ne poklapaju.');
         return;
       }
-
-      setShowUnavailablePopup(true);
-      return;
+      if (!avatarFile) {
+        setMessage('Izaberi profilnu fotografiju.');
+        return;
+      }
+      if (!avatarFile.type.startsWith('image/') || avatarFile.size > 5 * 1024 * 1024) {
+        setMessage('Izaberi sliku veličine do 5 MB.');
+        return;
+      }
     }
 
     setLoading(true);
     try {
+      if (isRegister) {
+        const { data, error } = await supabase.auth.signUp({
+          email: email.trim(),
+          password,
+          options: {
+            data: {
+              first_name: firstName.trim(),
+              last_name: lastName.trim(),
+              birth_year: Number(birthYear),
+              interests,
+            },
+          },
+        });
+        if (error) {
+          setMessage(error.message);
+          return;
+        }
+
+        if (data.session && data.user && avatarFile) {
+          const extension = avatarFile.name.split('.').pop()?.toLowerCase() || 'jpg';
+          const path = `profiles/${data.user.id}/${Date.now()}.${extension}`;
+          const { error: uploadError } = await supabase.storage.from('locations').upload(path, avatarFile, {
+            cacheControl: '3600',
+            upsert: false,
+            contentType: avatarFile.type,
+          });
+          if (uploadError) {
+            setMessage('Nalog je kreiran, ali fotografija nije otpremljena. Možeš je dodati kasnije na stranici profila.');
+            return;
+          }
+          const { data: publicImage } = supabase.storage.from('locations').getPublicUrl(path);
+          const { error: metadataError } = await supabase.auth.updateUser({
+            data: {
+              first_name: firstName.trim(),
+              last_name: lastName.trim(),
+              birth_year: Number(birthYear),
+              interests,
+              avatar_url: publicImage.publicUrl,
+            },
+          });
+          if (metadataError) {
+            setMessage('Nalog i fotografija su sačuvani. Profilnu sliku možeš ponovo podesiti na stranici profila.');
+            return;
+          }
+          router.push('/profile');
+          router.refresh();
+          return;
+        }
+
+        setMessage('Nalog je kreiran. Proveri email i potvrdi adresu. Nakon potvrde se prijavi i dodaj profilnu fotografiju na stranici profila.');
+        setIsRegister(false);
+        setPassword('');
+        setConfirmPassword('');
+        return;
+      }
+
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error || !data.user) {
         setMessage(`Greška pri prijavi: ${error?.message || 'Nalog nije pronađen.'}`);
         return;
       }
-
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', data.user.id)
-        .single();
-
-      if (profileError || profile?.role !== 'admin') {
-        await supabase.auth.signOut();
-        setShowUnavailablePopup(true);
-        return;
-      }
-
       router.push('/');
       router.refresh();
     } catch {
-      setMessage('Došlo je do greške pri prijavi. Pokušaj ponovo.');
+      setMessage('Došlo je do greške. Pokušaj ponovo.');
     } finally {
       setLoading(false);
     }
   };
 
   const handlePhotoChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
+    const file = event.target.files?.[0] ?? null;
+    setAvatarFile(file);
     if (!file) {
       setAvatarPreview('');
       return;
@@ -167,14 +225,14 @@ export default function AuthPage() {
             </div>}
           </div>
 
-          {isRegister && <p className="rounded-xl bg-amber-50 px-4 py-3 text-sm leading-5 text-amber-800 dark:bg-amber-950/30 dark:text-amber-200">Registracija je trenutno zatvorena. Ovaj obrazac služi za pripremu profila; nalog se još ne kreira.</p>}
+          {isRegister && <p className="rounded-xl bg-emerald-50 px-4 py-3 text-sm leading-5 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200">Nakon registracije možda će biti potrebno da potvrdiš email adresu.</p>}
 
           <button type="submit" disabled={loading} className="mt-2 w-full rounded-xl bg-[#006D44] py-3 font-semibold text-white shadow-md transition duration-200 hover:bg-[#004D30] disabled:opacity-50">
-            {loading ? 'Učitavanje...' : isRegister ? 'Registracija trenutno nije dostupna' : 'Prijavi se'}
+            {loading ? 'Učitavanje...' : isRegister ? 'Kreiraj nalog' : 'Prijavi se'}
           </button>
         </form>
 
-        {message && <p role="alert" className="mt-4 rounded-xl bg-red-50 p-3 text-center text-sm font-medium text-red-700 dark:bg-red-950/30 dark:text-red-400">{message}</p>}
+        {message && <p role="alert" className={`mt-4 rounded-xl p-3 text-center text-sm font-medium ${message.startsWith('Nalog ') ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-300' : 'bg-red-50 text-red-700 dark:bg-red-950/30 dark:text-red-400'}`}>{message}</p>}
 
         <div className="mt-6 text-center">
           <button type="button" onClick={() => { setIsRegister(!isRegister); setMessage(''); }} className="text-sm font-semibold text-[#006D44] hover:underline dark:text-emerald-400">
@@ -183,14 +241,6 @@ export default function AuthPage() {
         </div>
       </div>
 
-      {showUnavailablePopup && <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/55 px-5 backdrop-blur-sm" onMouseDown={(event) => { if (event.target === event.currentTarget) setShowUnavailablePopup(false); }}>
-        <section role="dialog" aria-modal="true" aria-labelledby="auth-unavailable-title" className="w-full max-w-sm rounded-3xl border border-gray-100 bg-white p-6 text-center shadow-2xl dark:border-zinc-800 dark:bg-zinc-900">
-          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-50 text-xl text-[#006D44] dark:bg-emerald-950/50 dark:text-emerald-400">✦</div>
-          <h2 id="auth-unavailable-title" className="text-lg font-bold text-zinc-900 dark:text-white">Registracija će biti moguća uskoro</h2>
-          <p className="mt-2 text-sm leading-6 text-gray-600 dark:text-zinc-400">Prijava i registracija su trenutno dostupne samo administratoru.</p>
-          <button type="button" onClick={() => setShowUnavailablePopup(false)} className="mt-5 w-full rounded-xl bg-[#006D44] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#004D30]">U redu</button>
-        </section>
-      </div>}
     </div>
   );
 }

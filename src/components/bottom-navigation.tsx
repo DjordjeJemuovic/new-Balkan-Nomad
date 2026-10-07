@@ -19,7 +19,7 @@ export default function BottomNavigation() {
   const [activeView, setActiveView] = useState<'home' | 'favorites'>('home');
 
   useEffect(() => {
-    const refreshFavorites = () => {
+    const countGuestFavorites = () => {
       let count = 0;
       for (let index = 0; index < window.localStorage.length; index++) {
         const key = window.localStorage.key(index);
@@ -28,25 +28,43 @@ export default function BottomNavigation() {
       setFavoriteCount(count);
     };
 
+    const refreshFavoriteCount = async (userId: string | null) => {
+      if (!userId) {
+        countGuestFavorites();
+        return;
+      }
+      const { count, error } = await supabase
+        .from('user_saved_locations')
+        .select('location_id', { count: 'exact', head: true })
+        .eq('user_id', userId);
+      setFavoriteCount(error ? 0 : count ?? 0);
+    };
+
     const refreshRole = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.user) {
         setRole('user');
+        await refreshFavoriteCount(null);
         return;
       }
       const { data: profile } = await supabase.from('profiles').select('role').eq('id', session.user.id).single();
       setRole(profile?.role ?? 'user');
+      await refreshFavoriteCount(session.user.id);
     };
 
-    refreshFavorites();
     void refreshRole();
     const onAuthChange = () => { window.setTimeout(() => void refreshRole(), 0); };
-    window.addEventListener('storage', refreshFavorites);
-    window.addEventListener('balkan-nomad:favorites-changed', refreshFavorites);
+    const onFavoritesChange = () => {
+      void supabase.auth.getSession().then(({ data: { session } }) => refreshFavoriteCount(session?.user.id ?? null));
+    };
+    window.addEventListener('storage', onFavoritesChange);
+    window.addEventListener('focus', onAuthChange);
+    window.addEventListener('balkan-nomad:favorites-changed', onFavoritesChange);
     const { data: authListener } = supabase.auth.onAuthStateChange(onAuthChange);
     return () => {
-      window.removeEventListener('storage', refreshFavorites);
-      window.removeEventListener('balkan-nomad:favorites-changed', refreshFavorites);
+      window.removeEventListener('storage', onFavoritesChange);
+      window.removeEventListener('focus', onAuthChange);
+      window.removeEventListener('balkan-nomad:favorites-changed', onFavoritesChange);
       authListener.subscription.unsubscribe();
     };
   }, []);

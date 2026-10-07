@@ -9,7 +9,7 @@ Ovaj dokument opisuje funkcionalnosti koje su trenutno implementirane u kodu apl
 - Oznake na karticama za težinu, prilagođenost deci, dozvoljene ljubimce i parking.
 - Pretraga po nazivu, regiji i kratkom opisu.
 - Filtriranje po državi.
-- Dugme za pretragu u donjoj navigaciji otvara popup sa poljem za pretragu, izborom države i rezultatima koji vode na stranicu destinacije.
+- Dugme „Profil” u donjoj navigaciji otvara stranicu sa korisničkim podacima i sačuvanim destinacijama.
 - Otvaranje detaljne stranice klikom na karticu destinacije.
 
 ## 2. Stranica destinacije
@@ -33,15 +33,18 @@ Ovaj dokument opisuje funkcionalnosti koje su trenutno implementirane u kodu apl
 - Donje dugme „Omiljeno” prikazuje sačuvane lokacije.
 - Brojač prikazuje koliko je lokacija sačuvano.
 - Ako nema omiljenih, prikazuje se poruka sa uputstvom kako da se lokacija sačuva.
-- Omiljene lokacije se trenutno pamte u `localStorage` pregledača, po slug-u destinacije. Ne sinhronizuju se između uređaja niti između pregledača.
+- Sačuvane lokacije prijavljenih korisnika vezane su za njihov profil u tabeli `user_saved_locations` i sinhronizuju se između uređaja.
+- Posetioci koji nisu prijavljeni i dalje čuvaju omiljene lokacije samo u `localStorage` pregledača.
 
 ## 4. Prijava i registracija
 
-- Prijava koristi Supabase Auth i email i lozinku.
-- Aplikacija proverava ulogu korisnika u tabeli `profiles`. Ulogovani korisnik koji nije prepoznat kao administrator se odjavljuje i dobija popup „Registracija će biti moguća uskoro”.
-- Registracija kroz aplikaciju je privremeno isključena. Pokušaj registracije prikazuje isti popup i ne pravi nalog.
+- Prijava i registracija koriste Supabase Auth i email i lozinku; svaki prijavljeni korisnik može da koristi svoj profil.
+- Registracija traži ime, prezime, godinu rođenja i profilnu fotografiju; interesovanja su opcionalna. Lozinka mora imati najmanje 8 karaktera, veliko slovo i broj.
+- Podaci profila čuvaju se u tabeli `profiles`; profilne fotografije se otpremaju u `locations` Storage bucket u putanju `profiles/<id-korisnika>/`.
+- Migracija `202610070003_enable_user_profiles.sql` dodaje polja, RLS pravila i automatski upis profila nakon registracije. Potrebno je primeniti je u Supabase projektu.
+- Migracija `202610070004_user_saved_locations.sql` povezuje omiljene destinacije sa korisničkim profilom. Primenjuje se nakon migracije profila.
 - Neuspešna prijava prikazuje poruku o grešci.
-- Dugme za odjavu dostupno je u zaglavlju kada postoji prijavljena sesija.
+- Dugme „Profil” u donjoj navigaciji otvara stranicu sa korisničkim podacima i sačuvanim destinacijama.
 
 ## 5. Administracija destinacija
 
@@ -78,8 +81,8 @@ Ovaj dokument opisuje funkcionalnosti koje su trenutno implementirane u kodu apl
 
 ## 8. Funkcionalnosti koje još nisu povezane
 
-- Dugme „Profil” u donjoj navigaciji trenutno nema povezanu stranicu ili akciju.
-- Omiljene lokacije nisu vezane za korisnički nalog.
+- Dugme „Profil” u donjoj navigaciji otvara stranicu sa korisničkim podacima i sačuvanim destinacijama.
+- Migracija `202610070004_user_saved_locations.sql` dodaje vezu sa profilom i RLS pravila za sačuvane lokacije. Potrebno je primeniti je u Supabase projektu.
 - PWA ne radi offline.
-- Registracija je blokirana kroz korisnički interfejs. Za potpuno isključenje javne registracije potrebno je isključiti prijave i u Supabase podešavanjima.
-- Provera administratora na login stranici koristi ulogu iz profila. Supabase RLS pravila treba da ostanu izvor konačne kontrole pristupa bazi i Storage-u.
+- Registracija je dostupna kroz aplikaciju; ako je potvrda emaila uključena u Supabase-u, korisnik potvrđuje adresu pre prve prijave.
+- Uloga administratora se koristi za administratorske funkcije; RLS pravila ostaju izvor konačne kontrole pristupa bazi i Storage-u.
