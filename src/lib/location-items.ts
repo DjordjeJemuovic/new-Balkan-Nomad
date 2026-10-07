@@ -108,3 +108,27 @@ export function formatLocationItems(rows: Array<Record<string, unknown>>): Locat
     food,
   };
 }
+
+export function formatLegacyLocationItems(value: unknown): LocationItemFormData {
+  const location = value && typeof value === 'object' ? value as Record<string, unknown> : {};
+  const rows: Array<Record<string, unknown>> = [];
+  const addRows = (items: unknown, type: LocationItemType, subtype?: string) => {
+    if (!Array.isArray(items)) return;
+    for (const item of items) {
+      if (!item || typeof item !== 'object') continue;
+      const card = item as Record<string, unknown>;
+      rows.push({
+        ...card,
+        image_url: typeof card.image_url === 'string' ? card.image_url : card.image,
+        type,
+        subtype,
+      });
+    }
+  };
+
+  addRows(location.activities, 'activity');
+  addRows(location.attractions ?? location.sights, 'attraction');
+  addRows(location.accommodations ?? location.stays, 'venue', 'accommodation');
+  addRows(location.food ?? location.restaurants, 'venue', 'food');
+  return formatLocationItems(rows);
+}

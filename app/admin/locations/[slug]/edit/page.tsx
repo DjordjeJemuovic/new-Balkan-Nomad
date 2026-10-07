@@ -5,7 +5,7 @@ import { supabase } from '../../../../../src/lib/supabase';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Image as ImageIcon, Loader2, Save, Upload, X } from 'lucide-react';
 import Link from 'next/link';
-import { buildLocationItems, emptyLocationItemFormData, formatLocationItems, uploadLocationItemImages, type LocationItemFormData } from '../../../../../src/lib/location-items';
+import { buildLocationItems, emptyLocationItemFormData, formatLegacyLocationItems, formatLocationItems, uploadLocationItemImages, type LocationItemFormData } from '../../../../../src/lib/location-items';
 import { describeSupabaseError } from '../../../../../src/lib/supabase-error';
 import LocationItemsEditor from '../../../../../src/components/location-items-editor';
 
@@ -121,7 +121,7 @@ export default function EditLocationPage({ params }: { params: Promise<{ slug: s
         setLoading(false);
         return;
       }
-      const itemFields = formatLocationItems(locationItems || []);
+      const itemFields = locationItems?.length ? formatLocationItems(locationItems) : formatLegacyLocationItems(data);
 
       const categoryId = data.category_id || 'vidikovac';
 
