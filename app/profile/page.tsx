@@ -61,7 +61,7 @@ export default function ProfilePage() {
     async function loadProfile() {
       const [{ data: { session } }, { data: locationRows }] = await Promise.all([
         supabase.auth.getSession(),
-        supabase.from('locations').select('id, slug, title, country, region, cover_image, short_description').order('title'),
+        supabase.from('locations').select('id, slug, title, country, cover_image, short_description').order('title'),
       ]);
       if (!active) return;
 
@@ -245,7 +245,7 @@ export default function ProfilePage() {
             {savedLocations.length ? <div className="grid gap-3 sm:grid-cols-2">
               {savedLocations.map((location) => <Link key={location.id} href={`/locations/${location.slug}`} className="group overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md dark:border-zinc-800 dark:bg-zinc-900">
                 <div className="relative h-36 bg-gray-100 dark:bg-zinc-800">{location.cover_image && <img src={location.cover_image} alt={location.title} className="h-full w-full object-cover transition group-hover:scale-[1.02]" />}</div>
-                <div className="p-4"><h3 className="font-bold text-zinc-900 dark:text-white">{location.title}</h3><p className="mt-1 text-xs text-gray-500 dark:text-zinc-400">{[location.region, location.country].filter(Boolean).join(', ')}</p>{location.short_description && <p className="mt-2 line-clamp-2 text-sm text-gray-600 dark:text-zinc-400">{location.short_description}</p>}</div>
+                <div className="p-4"><h3 className="font-bold text-zinc-900 dark:text-white">{location.title}</h3><p className="mt-1 text-xs text-gray-500 dark:text-zinc-400">{location.country}</p>{location.short_description && <p className="mt-2 line-clamp-2 text-sm text-gray-600 dark:text-zinc-400">{location.short_description}</p>}</div>
               </Link>)}
             </div> : <div className="rounded-2xl border border-dashed border-gray-300 bg-white px-5 py-8 text-center dark:border-zinc-700 dark:bg-zinc-900"><Heart className="mx-auto h-6 w-6 text-gray-400" /><p className="mt-2 text-sm text-gray-600 dark:text-zinc-400">Još nemaš sačuvanih destinacija.</p><Link href="/" className="mt-3 inline-block text-sm font-semibold text-emerald-700 hover:underline dark:text-emerald-400">Istraži destinacije</Link></div>}
           </section>

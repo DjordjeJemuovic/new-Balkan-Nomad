@@ -381,7 +381,7 @@ export default function HomePage() {
                     <div className="p-5 space-y-2">
                       <div className="flex items-center gap-1 text-xs text-gray-400 font-medium">
                         <MapPin className="w-3.5 h-3.5 text-gray-400" />
-                        <span>{loc.region ? `${loc.region}, ` : ''}{loc.country}</span>
+                        <span>{loc.country}</span>
                       </div>
 
                       <h4 className="text-base font-black text-zinc-900 dark:text-white tracking-tight group-hover:text-[#006D44] dark:group-hover:text-emerald-400 transition">
@@ -444,7 +444,7 @@ export default function HomePage() {
           <div className="min-h-0 flex-1 overflow-y-auto border-t border-gray-100 px-4 py-2 dark:border-zinc-800">
             {loading ? <p className="py-8 text-center text-sm text-gray-500">Učitavanje destinacija...</p> : locations.length ? locations.map((location) => <Link key={location.id} href={`/locations/${location.slug}`} onClick={() => setIsSearchOpen(false)} className="flex items-center gap-3 border-b border-gray-100 py-3 last:border-0 dark:border-zinc-800">
               <img src={location.cover_image || location.cover_url || location.image || 'https://placeholder.co/160x100'} alt="" className="h-14 w-20 shrink-0 rounded-xl object-cover" />
-              <span className="min-w-0"><span className="block truncate text-sm font-semibold text-zinc-900 dark:text-white">{location.title}</span><span className="mt-1 block truncate text-xs text-gray-500 dark:text-zinc-400">{[location.region, location.country].filter(Boolean).join(', ')}</span></span>
+              <span className="min-w-0"><span className="block truncate text-sm font-semibold text-zinc-900 dark:text-white">{location.title}</span><span className="mt-1 block truncate text-xs text-gray-500 dark:text-zinc-400">{location.country}</span></span>
             </Link>) : listError ? <p className="py-8 text-center text-sm text-red-600">{listError}</p> : <p className="py-8 text-center text-sm text-gray-500">Nema rezultata za unetu pretragu.</p>}
             {!loading && listError && <button type="button" onClick={() => hasMore ? void loadMore() : setRetryCount((count) => count + 1)} className="my-3 w-full rounded-xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-700 dark:bg-red-950/30 dark:text-red-300">Pokušaj ponovo</button>}
             {!loading && hasMore && <button type="button" onClick={() => void loadMore()} disabled={loadingMore} className="my-3 w-full rounded-xl bg-gray-100 px-4 py-3 text-sm font-semibold text-zinc-700 disabled:opacity-60 dark:bg-zinc-800 dark:text-zinc-200">{loadingMore ? 'Učitavanje...' : 'Učitaj još rezultata'}</button>}

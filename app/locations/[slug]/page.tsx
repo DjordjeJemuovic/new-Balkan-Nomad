@@ -209,7 +209,7 @@ export default function LocationDetailPage({ params }: { params: Promise<{ slug:
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-[#101310] to-transparent" />
       {images.length > 1 && <span className="absolute bottom-28 right-5 rounded-full bg-black/45 px-3 py-1 text-xs text-white backdrop-blur">Prevuci fotografije · {images.length}</span>}
       <div className="absolute inset-x-0 bottom-0 mx-auto w-full max-w-7xl px-5 pb-5 md:px-8 lg:px-12 lg:pb-10">
-        <div className="mb-2 flex items-center gap-1.5 text-sm font-medium text-emerald-300"><MapPin className="h-4 w-4" />{[location.region, location.country].filter(Boolean).join(', ')}</div>
+        <div className="mb-2 flex items-center gap-1.5 text-sm font-medium text-emerald-300"><MapPin className="h-4 w-4" />{location.country}</div>
         <h1 className="break-words text-2xl font-bold tracking-tight text-white sm:text-3xl md:text-4xl lg:text-5xl">{location.title}</h1>
         <div className="mt-3 flex flex-wrap gap-2"><span className={`rounded-full px-3 py-1.5 text-xs font-semibold ${difficultyClass}`}>{location.difficulty || 'Destinacija'}</span><span className="rounded-full bg-white/10 px-3 py-1.5 text-xs font-medium text-white">{location.category_id}</span></div>
       </div>
