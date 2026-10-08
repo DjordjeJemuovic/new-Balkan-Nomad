@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist_Mono, Noto_Sans } from "next/font/google";
 import "./globals.css";
 import BottomNavigation from "../src/components/bottom-navigation";
+import FeedbackSection from "../src/components/feedback-section";
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
@@ -41,6 +42,7 @@ export default function RootLayout({
     <html lang="sr" className={`${notoSans.variable} ${geistMono.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col">
         {children}
+        <FeedbackSection />
         <BottomNavigation />
       </body>
     </html>
