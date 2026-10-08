@@ -4,15 +4,15 @@ import { useEffect, useState } from 'react';
 
 type Coordinates = { lat: number; lon: number };
 
-export default function DestinationMap({ title, region, country }: { title: string; region?: string | null; country?: string | null }) {
+export default function DestinationMap({ slug, title, region, country }: { slug: string; title: string; region?: string | null; country?: string | null }) {
   const [coordinates, setCoordinates] = useState<Coordinates | null>(null);
   const [status, setStatus] = useState<'loading' | 'ready' | 'not-found' | 'error'>('loading');
 
   useEffect(() => {
-    const text = [title, region, country].filter(Boolean).join(', ');
+    const params = new URLSearchParams({ slug, title, region: region ?? '', country: country ?? '' });
     let cancelled = false;
 
-    fetch(`/api/geocode?${new URLSearchParams({ text })}`)
+    fetch(`/api/geocode?${params}`)
       .then(async (response) => {
         if (!response.ok) throw new Error('Geocoding request failed');
         return response.json();
@@ -29,7 +29,7 @@ export default function DestinationMap({ title, region, country }: { title: stri
       .catch(() => { if (!cancelled) setStatus('error'); });
 
     return () => { cancelled = true; };
-  }, [title, region, country]);
+  }, [slug, title, region, country]);
 
   if (status !== 'ready' || !coordinates) {
     const message = status === 'loading'

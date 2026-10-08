@@ -254,7 +254,7 @@ export default function LocationDetailPage({ params }: { params: Promise<{ slug:
       {(Array.isArray(location.warnings) ? location.warnings : location.warning ? [location.warning] : []).map((warning: string, index: number) => <div key={`${warning}-${index}`} className="mb-4 flex gap-3 rounded-2xl border border-orange-400/20 bg-orange-400/10 p-4 text-orange-800 dark:text-orange-100"><ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-orange-500" /><div><p className="text-sm font-semibold">Važno za bezbednost</p><p className="mt-1 text-sm leading-5 text-orange-800/80 dark:text-orange-100/75">{warning}</p></div></div>)}
       <div className="mb-5 flex flex-wrap gap-2">{[[Baby,'Deca',location.child_friendly], [PawPrint,'Ljubimci',location.pet_allowed], [ParkingCircle,'Parking',location.parking_available]].map(([Icon, label, yes]: any) => <span key={label} className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs ${yes ? 'border-sky-400/20 bg-sky-400/10 text-sky-700 dark:text-sky-200' : 'border-gray-200 dark:border-white/[0.06] bg-gray-100 dark:bg-white/[0.03] text-zinc-600'}`}><Icon className="h-3.5 w-3.5" />{label}{yes && <Check className="h-3 w-3" />}</span>)}</div>
       <h3 className="mb-3 text-sm font-semibold text-zinc-900 dark:text-white">Lokacija na mapi</h3>
-      <DestinationMap title={location.title} region={location.region} country={location.country} />
+      <DestinationMap slug={location.slug} title={location.title} region={location.region} country={location.country} />
     </section>
     </div>
 
